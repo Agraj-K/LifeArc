@@ -33,6 +33,9 @@ function Navigation() {
   const location = useLocation()
   const { user, logout } = useAuth()
   
+  const isActive = (path) => location.pathname === path
+  const linkClass = (path, custom = "") => `transition-all duration-300 text-sm tracking-wide ${isActive(path) ? 'text-teal-400 font-bold' : 'text-white/40 hover:text-white'} ${custom}`
+
   // Custom transparent navbar for landing page
   const isLanding = location.pathname === '/'
 
@@ -49,26 +52,26 @@ function Navigation() {
           {user ? (
             /* Registered User Links */
             <>
-              <Link to="/dashboard" className="nav-link font-medium text-white/90">Dashboard</Link>
-              <Link to="/events" className="nav-link">Archive</Link>
-              <Link to="/journal" className="nav-link">Journal</Link>
-              <Link to="/goals" className="nav-link">Goals</Link>
+              <Link to="/dashboard" className={linkClass('/dashboard')}>Dashboard</Link>
+              <Link to="/events" className={linkClass('/events')}>Archive</Link>
+              <Link to="/journal" className={linkClass('/journal')}>Journal</Link>
+              <Link to="/goals" className={linkClass('/goals')}>Goals</Link>
               {user.role !== 'admin' && (
-                <Link to="/feedback" className="nav-link">Feedback</Link>
+                <Link to="/feedback" className={linkClass('/feedback')}>Feedback</Link>
               )}
             </>
           ) : (
             /* Guest User Links */
             <>
-              <Link to="/" className="nav-link">Home</Link>
-              <Link to="/about" className="nav-link">About</Link>
-              <Link to="/journal" className="nav-link">Journal</Link>
-              <Link to="/feedback" className="nav-link">Feedback</Link>
+              <Link to="/" className={linkClass('/')}>Home</Link>
+              <Link to="/about" className={linkClass('/about')}>About</Link>
+              <Link to="/journal" className={linkClass('/journal')}>Journal</Link>
+              <Link to="/feedback" className={linkClass('/feedback')}>Feedback</Link>
             </>
           )}
           
           {user?.role === 'admin' && (
-            <Link to="/admin" className="nav-link text-purple-400">Admin</Link>
+            <Link to="/admin" className={linkClass('/admin', 'text-purple-400')}>Admin</Link>
           )}
         </div>
 

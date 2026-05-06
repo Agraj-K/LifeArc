@@ -37,14 +37,14 @@ export default function Login() {
   const handleSubmit = async (e) => {
     e.preventDefault()
     setLoading(true)
-    
+
     try {
-      const endpoint = mode === 'login' 
-        ? 'http://localhost:5000/api/auth/login' 
+      const endpoint = mode === 'login'
+        ? 'http://localhost:5000/api/auth/login'
         : 'http://localhost:5000/api/auth/register';
-      
-      const payload = mode === 'login' 
-        ? { email, password } 
+
+      const payload = mode === 'login'
+        ? { email, password }
         : { name, email, password };
 
       const { data } = await axios.post(endpoint, payload);
@@ -72,7 +72,7 @@ export default function Login() {
 
   return (
     <div className="relative min-h-screen w-full overflow-hidden flex items-center justify-center" style={{ backgroundColor: 'hsl(201, 100%, 13%)' }}>
-      
+
       {/* Liquid Background */}
       <div className="absolute inset-0 z-0 overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-b from-[hsl(201,100%,10%)] to-[hsl(201,100%,16%)] opacity-80" />
@@ -85,7 +85,7 @@ export default function Login() {
       {/* Back to Home */}
       <Link to="/" className="absolute top-6 left-8 z-20 text-white/40 hover:text-white transition-colors flex items-center gap-2 text-sm">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="m15 18-6-6 6-6"/>
+          <path d="m15 18-6-6 6-6" />
         </svg>
         Back to Home
       </Link>
@@ -93,41 +93,41 @@ export default function Login() {
       {/* Main Card */}
       <div className="animate-fade-rise relative z-10 w-full max-w-[420px] px-4">
         <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-black/20 backdrop-blur-2xl shadow-2xl shadow-black/50">
-          
+
           <div className="absolute -top-[100px] -left-[100px] w-[300px] h-[300px] bg-teal-500/20 rounded-full blur-[100px] pointer-events-none" />
-          
+
           <div className="relative p-8 md:p-10 flex flex-col gap-8">
-            
+
             {/* Header */}
             <div className="text-center space-y-2">
               <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-gradient-to-tr from-teal-500/20 to-blue-500/20 border border-white/10 mb-4 shadow-inner">
                 <svg className="text-teal-200" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/>
+                  <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z" />
                 </svg>
               </div>
               <h1 className="text-4xl text-white tracking-wide" style={{ fontFamily: "'Instrument Serif', serif" }}>
                 {mode === 'login' ? 'Welcome Back' : 'Join Velora'}
               </h1>
               <p className="text-white/50 text-sm tracking-wide">
-                {mode === 'login' 
-                  ? 'Enter your credentials to access your account.' 
+                {mode === 'login'
+                  ? 'Enter your credentials to access your account.'
                   : 'Create an account to start your journey.'}
               </p>
             </div>
 
             {/* Login/Signup Form */}
             <form className="flex flex-col gap-5" onSubmit={handleSubmit}>
-              
+
               {mode === 'signup' && (
                 <div className="relative group animate-fade-rise">
                   <div className="absolute left-3 top-1/2 -translate-y-1/2 text-white/40 group-focus-within:text-teal-400 transition-colors duration-300">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/>
-                      <circle cx="12" cy="7" r="4"/>
+                      <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
+                      <circle cx="12" cy="7" r="4" />
                     </svg>
                   </div>
-                  <input 
-                    type="text" 
+                  <input
+                    type="text"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     className="w-full bg-white/5 border border-white/10 rounded-xl py-3 pl-10 pr-4 text-white placeholder:text-white/30 focus:outline-none focus:border-teal-500/50 focus:bg-white/10 focus:shadow-[0_0_20px_rgba(20,184,166,0.15)] transition-all duration-300"
@@ -135,70 +135,64 @@ export default function Login() {
                   />
                 </div>
               )}
-              
+
               <div className="relative group">
                 <div className="absolute left-3 top-1/2 -translate-y-1/2 text-white/40 group-focus-within:text-teal-400 transition-colors duration-300">
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <rect width="20" height="16" x="2" y="4" rx="2"/>
-                    <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>
+                    <rect width="20" height="16" x="2" y="4" rx="2" />
+                    <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
                   </svg>
                 </div>
-                <input 
-                  type="email" 
+                <input
+                  type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="w-full bg-white/5 border border-white/10 rounded-xl py-3 pl-10 pr-4 text-white placeholder:text-white/30 focus:outline-none focus:border-teal-500/50 focus:bg-white/10 focus:shadow-[0_0_20px_rgba(20,184,166,0.15)] transition-all duration-300"
                   placeholder="Email Address"
                 />
               </div>
-              
+
               <div className="relative group">
                 <div className="absolute left-3 top-1/2 -translate-y-1/2 text-white/40 group-focus-within:text-teal-400 transition-colors duration-300">
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <rect width="18" height="11" x="3" y="11" rx="2" ry="2"/>
-                    <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                    <rect width="18" height="11" x="3" y="11" rx="2" ry="2" />
+                    <path d="M7 11V7a5 5 0 0 1 10 0v4" />
                   </svg>
                 </div>
-                 <input 
-                  type={showPassword ? "text" : "password"} 
+                <input
+                  type={showPassword ? "text" : "password"}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="w-full bg-white/5 border border-white/10 rounded-xl py-3 pl-10 pr-10 text-white placeholder:text-white/30 focus:outline-none focus:border-teal-500/50 focus:bg-white/10 focus:shadow-[0_0_20px_rgba(20,184,166,0.15)] transition-all duration-300"
                   placeholder="Password"
                 />
-                <button 
-                  type="button" 
+                <button
+                  type="button"
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white transition-colors"
                 >
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     {showPassword ? (
                       <>
-                        <path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/>
-                        <path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/>
-                        <path d="M6.61 6.61A13.52 13.52 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/>
-                        <line x1="2" y1="2" x2="22" y2="22"/>
+                        <path d="M9.88 9.88a3 3 0 1 0 4.24 4.24" />
+                        <path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68" />
+                        <path d="M6.61 6.61A13.52 13.52 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61" />
+                        <line x1="2" y1="2" x2="22" y2="22" />
                       </>
                     ) : (
                       <>
-                        <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/>
-                        <circle cx="12" cy="12" r="3"/>
+                        <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
+                        <circle cx="12" cy="12" r="3" />
                       </>
                     )}
                   </svg>
                 </button>
               </div>
 
-              {mode === 'login' && (
-                <div className="flex justify-end animate-fade-rise">
-                  <a href="#" className="text-xs text-white/40 hover:text-teal-400 transition-colors font-medium tracking-wide">
-                    Forgot Password?
-                  </a>
-                </div>
-              )}
 
-              <button 
-                type="submit" 
+
+              <button
+                type="submit"
                 disabled={loading}
                 className="liquid-glass relative w-full py-3.5 mt-2 text-sm font-semibold tracking-wider uppercase text-white rounded-xl hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
@@ -214,21 +208,21 @@ export default function Login() {
                   <>
                     {mode === 'login' ? 'Sign In' : 'Create Account'}
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M5 12h14"/>
-                      <path d="m12 5 7 7-7 7"/>
+                      <path d="M5 12h14" />
+                      <path d="m12 5 7 7-7 7" />
                     </svg>
                   </>
                 )}
               </button>
             </form>
-            )}
+
 
             {/* Footer Toggle */}
             {mode !== 'suspended' && (
               <div className="text-center pt-2">
                 <p className="text-white/40 text-sm">
                   {mode === 'login' ? "Don't have an account?" : "Already have an account?"}
-                  <button 
+                  <button
                     onClick={toggleMode}
                     className="ml-2 text-teal-400 hover:text-teal-300 font-medium transition-colors hover:underline underline-offset-4 bg-transparent border-none cursor-pointer"
                   >
@@ -239,7 +233,7 @@ export default function Login() {
             )}
           </div>
         </div>
-        
+
         <div className="absolute -bottom-4 left-1/2 -translate-x-1/2 w-[80%] h-4 bg-teal-900/20 blur-xl rounded-full -z-10" />
       </div>
     </div>

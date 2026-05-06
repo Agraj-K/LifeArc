@@ -237,16 +237,18 @@ export default function Admin() {
                           <td className="py-4 px-4 text-white/40 text-sm font-medium">{user.suspensionCount || 0}</td>
                           <td className="py-4 px-4 text-white/40 text-sm">{new Date(user.createdAt).toLocaleDateString()}</td>
                           <td className="py-4 px-4">
-                            <div className="flex items-center justify-end gap-2">
-                              <button onClick={() => handleSuspend(user._id, user.status)} className={`p-2 rounded-lg border transition-all duration-300 ${user.status === 'Active' ? 'bg-yellow-500/10 border-yellow-500/30 text-yellow-400 hover:bg-yellow-500/20' : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20'}`} title={user.status === 'Active' ? 'Suspend' : 'Activate'}>
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                  {user.status === 'Active' ? <><path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-.43 2.8a2 2 0 0 0 2 2.3H10z"/><path d="M17 12v4a3 3 0 0 1-3 3l-4-9V2h10.28a2 2 0 0 1 2 1.7l.43 2.8a2 2 0 0 1-2 2.3H17z"/></> : <><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></>}
-                                </svg>
-                              </button>
-                              <button onClick={() => setDeleteModal({ isOpen: true, type: 'user', id: user._id, submitting: false })} className="p-2 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-500/20 transition-all duration-300" title="Delete">
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
-                              </button>
-                            </div>
+                            {user.role !== 'admin' && (
+                              <div className="flex items-center justify-end gap-2">
+                                <button onClick={() => handleSuspend(user._id, user.status)} className={`p-2 rounded-lg border transition-all duration-300 ${user.status === 'Active' ? 'bg-yellow-500/10 border-yellow-500/30 text-yellow-400 hover:bg-yellow-500/20' : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20'}`} title={user.status === 'Active' ? 'Suspend' : 'Activate'}>
+                                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    {user.status === 'Active' ? <><path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-.43 2.8a2 2 0 0 0 2 2.3H10z"/><path d="M17 12v4a3 3 0 0 1-3 3l-4-9V2h10.28a2 2 0 0 1 2 1.7l.43 2.8a2 2 0 0 1-2 2.3H17z"/></> : <><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></>}
+                                  </svg>
+                                </button>
+                                <button onClick={() => setDeleteModal({ isOpen: true, type: 'user', id: user._id, submitting: false })} className="p-2 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-500/20 transition-all duration-300" title="Delete">
+                                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+                                </button>
+                              </div>
+                            )}
                           </td>
                         </tr>
                       ))}

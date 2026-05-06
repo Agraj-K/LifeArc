@@ -77,9 +77,12 @@ router.patch('/users/:id/suspend', async (req, res) => {
       return res.status(404).json({ message: 'User not found' });
     }
 
-    // Prevent admin from suspending themselves
+    // Prevent admin from suspending themselves or other admins
     if (user._id.toString() === req.user._id.toString()) {
       return res.status(400).json({ message: 'You cannot suspend your own account' });
+    }
+    if (user.role === 'admin') {
+      return res.status(403).json({ message: 'You cannot suspend another administrator' });
     }
 
     user.status = user.status === 'Active' ? 'Suspended' : 'Active';
@@ -108,9 +111,12 @@ router.delete('/users/:id', async (req, res) => {
       return res.status(404).json({ message: 'User not found' });
     }
 
-    // Prevent admin from deleting themselves
+    // Prevent admin from deleting themselves or other admins
     if (user._id.toString() === req.user._id.toString()) {
       return res.status(400).json({ message: 'You cannot delete your own account' });
+    }
+    if (user.role === 'admin') {
+      return res.status(403).json({ message: 'You cannot delete another administrator' });
     }
 
     const userId = user._id;
