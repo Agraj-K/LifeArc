@@ -38,6 +38,21 @@ router.post('/', async (req, res) => {
       milestones: milestones || [],
     });
 
+    // Automatically create a linked Habit for daily tracking
+    const Habit = require('../models/Habit');
+    await Habit.create({
+      userId: req.user._id,
+      goalId: goal._id,
+      title: goal.title,
+      category: goal.category === 'Career' ? 'Career' : 
+                goal.category === 'Health' ? 'Health' : 
+                goal.category === 'Learning' ? 'Learning' : 
+                goal.category === 'Finance' ? 'Finance' : 'Other',
+      color: 'teal',
+      completed: [],
+      streak: 0,
+    });
+
     res.status(201).json(goal);
   } catch (error) {
     res.status(500).json({ message: error.message });

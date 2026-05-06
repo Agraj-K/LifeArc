@@ -91,8 +91,8 @@ export default function Profile() {
         </div>
 
         {/* Stats Row */}
-        <div className="grid grid-cols-3 md:grid-cols-5 gap-4 mb-8">
-          {[{ label: 'Events', value: stats.events }, { label: 'Goals', value: stats.goals }, { label: 'Habits', value: stats.habits }, { label: 'Journal', value: stats.journalEntries }, { label: 'Streak', value: `${stats.streak}d` }].map((stat, i) => (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+          {[{ label: 'Events', value: stats.events }, { label: 'Goals', value: stats.goals }, { label: 'Journal', value: stats.journalEntries }, { label: 'Streak', value: `${stats.streak}d` }].map((stat, i) => (
             <div key={i} className="group relative overflow-hidden rounded-2xl border border-white/10 bg-white/5 backdrop-blur-sm p-4 hover:bg-white/10 hover:border-white/20 transition-all duration-500 text-center">
               <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-teal-500/0 via-teal-500/50 to-teal-500/0 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
               <div className="text-2xl text-white font-semibold mb-1">{stat.value}</div>
@@ -109,8 +109,8 @@ export default function Profile() {
         </div>
 
         {activeTab === 'overview' && (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {[{ label: 'My Events', path: '/events', count: stats.events, icon: 'M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5' }, { label: 'My Goals', path: '/goals', count: stats.goals, icon: 'M12 20V10M18 20V4M6 20v-6' }, { label: 'My Habits', path: '/habits', count: stats.habits, icon: 'M13 2L3 14h9l-1 8 10-12h-9l1-8z' }, { label: 'My Journal', path: '/journal', count: stats.journalEntries, icon: 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z' }].map((item, i) => (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {[{ label: 'My Events', path: '/events', count: stats.events, icon: 'M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5' }, { label: 'My Goals', path: '/goals', count: stats.goals, icon: 'M12 20V10M18 20V4M6 20v-6' }, { label: 'My Journal', path: '/journal', count: stats.journalEntries, icon: 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z' }].map((item, i) => (
               <Link key={i} to={item.path} className="group relative overflow-hidden rounded-2xl border border-white/10 bg-white/5 backdrop-blur-sm p-6 hover:bg-white/10 hover:border-white/20 transition-all duration-500">
                 <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-teal-500/0 via-teal-500/50 to-teal-500/0 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
                 <svg className="text-teal-400 mb-3" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d={item.icon} /></svg>

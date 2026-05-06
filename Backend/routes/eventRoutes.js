@@ -71,11 +71,28 @@ router.put('/:id', upload.array('images', 10), async (req, res) => {
     event.progress    = progress    ?? event.progress;
     event.location    = location    ?? event.location;
 
-    // Handle new images if provided
+    // Handle images
+    let finalImages = event.images;
+
+    // If existingImages is provided, it means some might have been removed
+    if (req.body.existingImages) {
+      try {
+        finalImages = JSON.parse(req.body.existingImages);
+      } catch (e) {
+        // If it's not JSON, assume it's a single string or already an array (multer quirk)
+        finalImages = Array.isArray(req.body.existingImages) 
+          ? req.body.existingImages 
+          : [req.body.existingImages];
+      }
+    }
+
+    // Add new images if uploaded
     if (req.files && req.files.length > 0) {
       const newImages = req.files.map(file => file.path);
-      event.images = [...event.images, ...newImages];
+      finalImages = [...finalImages, ...newImages];
     }
+
+    event.images = finalImages;
 
     await event.save();
     res.json(event);

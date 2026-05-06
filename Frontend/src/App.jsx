@@ -6,7 +6,6 @@ import Dashboard from './pages/Dashboard'
 import Journal from './pages/Journal'
 import Events from './pages/Events'
 import Goals from './pages/Goals'
-import Habits from './pages/Habits'
 import Admin from './pages/Admin'
 import Profile from './pages/Profile'
 import About from './pages/About'
@@ -53,7 +52,6 @@ function Navigation() {
               <Link to="/events" className="nav-link">Events</Link>
               <Link to="/journal" className="nav-link">Journal</Link>
               <Link to="/goals" className="nav-link">Goals</Link>
-              <Link to="/habits" className="nav-link">Habits</Link>
               <Link to="/feedback" className="nav-link">Feedback</Link>
             </>
           ) : (
@@ -123,7 +121,6 @@ export default function App() {
           <Route path="/feedback"  element={<Feedback />} />
           <Route path="/events"    element={<ProtectedRoute><Events /></ProtectedRoute>} />
           <Route path="/goals"     element={<ProtectedRoute><Goals /></ProtectedRoute>} />
-          <Route path="/habits"    element={<ProtectedRoute><Habits /></ProtectedRoute>} />
           <Route path="/profile"   element={<ProtectedRoute><Profile /></ProtectedRoute>} />
           <Route path="/admin"     element={<AdminRoute><Admin /></AdminRoute>} />
         </Routes>

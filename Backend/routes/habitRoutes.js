@@ -48,6 +48,21 @@ router.get('/:id/logs', async (req, res) => {
   }
 });
 
+// @route   GET /api/habits/goal/:goalId/logs
+// @desc    Get all logs for a specific Goal's linked habit
+// @access  Private
+router.get('/goal/:goalId/logs', async (req, res) => {
+  try {
+    const habit = await Habit.findOne({ goalId: req.params.goalId, userId: req.user._id });
+    if (!habit) return res.json([]);
+    const logs = await HabitLog.find({ habitId: habit._id, userId: req.user._id })
+      .sort({ date: 1 });
+    res.json({ habitId: habit._id, logs });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
 // @route   POST /api/habits
 // @desc    Create a new habit
 // @access  Private
@@ -80,13 +95,19 @@ router.post('/', async (req, res) => {
 // @access  Private
 router.post('/:id/log', upload.single('photo'), async (req, res) => {
   try {
-    const { date, note } = req.body;
-    const normalizedDate = new Date(date || Date.now());
-    normalizedDate.setHours(0, 0, 0, 0);
+    const { date, note, status } = req.body;
+    let normalizedDate;
+    if (date) {
+      normalizedDate = new Date(date); // Use the exact timestamp sent by frontend
+    } else {
+      normalizedDate = new Date();
+      normalizedDate.setHours(0, 0, 0, 0);
+    }
 
     const log = await HabitLog.findOneAndUpdate(
       { habitId: req.params.id, date: normalizedDate, userId: req.user._id },
       { 
+        status: status || 'attended',
         photo: req.file ? req.file.path : undefined,
         note: note || ''
       },

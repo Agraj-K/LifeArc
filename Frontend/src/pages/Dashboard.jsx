@@ -8,8 +8,19 @@ export default function Dashboard() {
   const [stats, setStats] = useState({ events: 0, goals: 0, habits: 0, journalEntries: 0, streak: 0 })
   const [recentEvents, setRecentEvents] = useState([])
   const [goals, setGoals] = useState([])
+  const [habitsData, setHabitsData] = useState([])
   const [aiInsights, setAiInsights] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [currentGoalIndex, setCurrentGoalIndex] = useState(0)
+
+  useEffect(() => {
+    if (goals.length > 1) {
+      const interval = setInterval(() => {
+        setCurrentGoalIndex(prev => (prev + 1) % goals.length)
+      }, 5000)
+      return () => clearInterval(interval)
+    }
+  }, [goals])
 
   useEffect(() => {
     const fetchDashboard = async () => {
@@ -18,11 +29,23 @@ export default function Dashboard() {
           API.get('/profile'),
           API.get('/events'),
           API.get('/goals'),
-          API.get('/journal'),
+          API.get('/journal')
         ])
         setStats(profileRes.data.stats)
         setRecentEvents(eventsRes.data.slice(0, 4))
-        setGoals(goalsRes.data.slice(0, 3))
+        
+        const topGoals = goalsRes.data.slice(0, 3)
+        setGoals(topGoals)
+
+        const logsPromises = topGoals.map(g => API.get(`/habits/goal/${g._id}/logs`).catch(() => ({ data: { logs: [] } })))
+        const logsResponses = await Promise.all(logsPromises)
+        
+        const trackingData = topGoals.map((g, i) => ({
+           goalId: g._id,
+           logs: logsResponses[i]?.data?.logs || []
+        }))
+        setHabitsData(trackingData)
+
         // Compute AI insights from last 5 journal entries
         const recentJournal = journalRes.data.slice(0, 5)
         setAiInsights(computeInsights(recentJournal))
@@ -169,18 +192,126 @@ export default function Dashboard() {
               <div className="space-y-6">
                 {goals.length === 0 ? (
                   <p className="text-white/40 text-sm text-center py-6">No goals yet. <Link to="/goals" className="text-teal-400 hover:text-teal-300">Create one →</Link></p>
-                ) : goals.map((goal) => (
-                  <div key={goal._id}>
-                    <div className="flex items-center justify-between mb-2">
-                      <h3 className="text-white font-medium">{goal.title}</h3>
-                      <span className="text-white/40 text-sm">{goal.targetDate ? new Date(goal.targetDate).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }) : 'No date'}</span>
-                    </div>
-                    <div className="w-full h-2 bg-white/10 rounded-full overflow-hidden">
-                      <div className="h-full bg-gradient-to-r from-teal-500 to-blue-500 rounded-full transition-all duration-1000" style={{ width: `${goal.progress}%` }} />
-                    </div>
-                    <div className="text-right text-white/40 text-xs mt-1">{goal.progress}% complete</div>
-                  </div>
-                ))}
+                ) : (
+                  (() => {
+                    const goal = goals[currentGoalIndex]
+                    const tracking = habitsData.find(h => h.goalId === goal._id) || { logs: [] }
+                    const today = new Date()
+                    const createdDate = new Date(goal.createdAt || today)
+                    createdDate.setHours(0, 0, 0, 0)
+                    const todayMid = new Date(today)
+                    todayMid.setHours(0, 0, 0, 0)
+                    const daysSinceCreation = Math.max(1, Math.floor((todayMid.getTime() - createdDate.getTime()) / (1000 * 60 * 60 * 24)) + 1)
+                    const attendedCount = tracking.logs?.filter(l => l.status === 'attended').length || 0
+
+                    let computedScore = 0
+                    if (goal.targetDate) {
+                      const target = new Date(goal.targetDate)
+                      target.setHours(0, 0, 0, 0)
+                      const totalDaysToTarget = Math.max(daysSinceCreation, Math.floor((target.getTime() - createdDate.getTime()) / (1000 * 60 * 60 * 24)) + 1)
+                      computedScore = parseFloat(((attendedCount / totalDaysToTarget) * 100).toFixed(2))
+                    } else {
+                      computedScore = parseFloat(((attendedCount / daysSinceCreation) * 100).toFixed(2))
+                    }
+
+                    const showComputed = !goal.milestones || goal.milestones.length === 0
+                    const displayProgress = showComputed ? Math.min(100, computedScore) : goal.progress
+
+                    // Calendar Logic
+                    const currentYear = today.getFullYear()
+                    const currentMonth = today.getMonth()
+                    const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate()
+                    const firstDayOfWeek = new Date(currentYear, currentMonth, 1).getDay()
+                    
+                    const calendarDays = []
+                    for(let i = 0; i < firstDayOfWeek; i++) calendarDays.push(null)
+                    for(let d = 1; d <= daysInMonth; d++) calendarDays.push(new Date(currentYear, currentMonth, d))
+
+                    return (
+                      <div key={goal._id} className="animate-fade-in relative flex flex-col h-full">
+                        <div className="flex items-center justify-between mb-4">
+                          <h3 className="text-2xl text-white tracking-tight" style={{ fontFamily: "'Instrument Serif', serif" }}>{goal.title}</h3>
+                          <span className="text-white/40 text-[10px] tracking-widest uppercase font-bold">{goal.targetDate ? new Date(goal.targetDate).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }) : 'No target'}</span>
+                        </div>
+                        
+                        <div className="mb-6">
+                           <div className="flex justify-between text-xs text-white/40 mb-2 font-medium tracking-wide uppercase text-[9px]">
+                              <span>Momentum</span>
+                              <span className="text-white">{displayProgress}%</span>
+                           </div>
+                           <div className="w-full h-1.5 bg-white/5 rounded-full overflow-hidden shadow-inner">
+                             <div className="h-full bg-gradient-to-r from-teal-500 to-blue-500 rounded-full transition-all duration-1000" style={{ width: `${displayProgress}%` }} />
+                           </div>
+                        </div>
+
+                        {/* Miniature Habit Calendar */}
+                        <div className="p-4 rounded-3xl bg-black/40 border border-white/5 shadow-inner">
+                           <div className="flex justify-between items-center mb-3">
+                              <span className="text-[9px] text-white/40 uppercase tracking-[0.2em] font-bold">{today.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</span>
+                           </div>
+                           <div className="grid grid-cols-7 gap-1">
+                              {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((d, idx) => (
+                                 <div key={idx} className="text-center text-[8px] uppercase tracking-[0.1em] text-white/20 font-bold pb-1">
+                                    {d}
+                                 </div>
+                              ))}
+                              {calendarDays.map((dateObj, i) => {
+                                 if (!dateObj) return <div key={i} className="aspect-square bg-transparent" />
+                                 
+                                 const dateObjTime = dateObj.getTime()
+                                 const isPast = dateObjTime < todayMid.getTime()
+                                 const isAfterCreation = dateObjTime >= createdDate.getTime()
+
+                                 const log = tracking.logs?.find(l => new Date(l.date).toLocaleDateString() === dateObj.toLocaleDateString())
+                                 
+                                 let isAttended = log?.status === 'attended'
+                                 let isMissed = log?.status === 'missed'
+                                 
+                                 if (!log && isPast && isAfterCreation) {
+                                   isMissed = true
+                                 }
+                                 
+                                 let cellClass = "aspect-square rounded-[0.4rem] flex items-center justify-center text-[9px] font-bold transition-all "
+                                 
+                                 if (isAttended) {
+                                   cellClass += "bg-teal-500/20 text-teal-400 border border-teal-500/30 "
+                                 } else if (isMissed) {
+                                   cellClass += "bg-red-500/10 text-red-500/50 border border-red-500/10 "
+                                 } else {
+                                   cellClass += "bg-white/[0.02] text-white/20 "
+                                 }
+
+                                 return (
+                                   <div key={i} className={cellClass}>
+                                      {isAttended && log.photo ? (
+                                        <div className="w-full h-full rounded-[0.4rem] bg-cover bg-center border border-teal-500/50 opacity-80" style={{ backgroundImage: `url(${log.photo})` }} />
+                                      ) : isMissed ? (
+                                        <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                                      ) : (
+                                        dateObj.getDate()
+                                      )}
+                                   </div>
+                                 )
+                              })}
+                           </div>
+                        </div>
+
+                        {/* Dots indicator */}
+                        {goals.length > 1 && (
+                          <div className="flex justify-center gap-2 mt-6">
+                            {goals.map((_, i) => (
+                              <button 
+                                key={i} 
+                                onClick={() => setCurrentGoalIndex(i)}
+                                className={`w-1.5 h-1.5 rounded-full transition-all duration-300 ${i === currentGoalIndex ? 'bg-teal-400 w-4' : 'bg-white/10 hover:bg-white/30'}`}
+                              />
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })()
+                )}
               </div>
 
               <Link 
@@ -198,8 +329,7 @@ export default function Dashboard() {
           {[
             { label: 'New Event', path: '/events', icon: 'M12 5v14M5 12h14' },
             { label: 'New Goal', path: '/goals', icon: 'M12 20V10M18 20V4M6 20v-6' },
-            { label: 'Journal', path: '/journal', icon: 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z' },
-            { label: 'Habits', path: '/habits', icon: 'M13 2L3 14h9l-1 8 10-12h-9l1-8z' },
+            { label: 'Journal', path: '/journal', icon: 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z' }
           ].map((action, i) => (
             <Link 
               key={i}
