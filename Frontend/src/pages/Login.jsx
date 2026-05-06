@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import axios from 'axios'
 import { toast } from 'sonner'
+import { useAuth } from '../context/AuthContext'
 import '../index.css'
 
 export default function Login() {
@@ -11,6 +12,7 @@ export default function Login() {
   const [name, setName] = useState('')
   const [loading, setLoading] = useState(false)
   const navigate = useNavigate()
+  const { login } = useAuth()
 
   const toggleMode = () => {
     setMode(prev => prev === 'login' ? 'signup' : 'login')
@@ -33,13 +35,12 @@ export default function Login() {
         : { name, email, password };
 
       const { data } = await axios.post(endpoint, payload);
-      
-      // Save user data and token
-      localStorage.setItem('user', JSON.stringify(data));
-      localStorage.setItem('token', data.token);
-      
+
+      // Save to context + localStorage
+      login(data);
+
       toast.success(mode === 'login' ? 'Welcome back!' : 'Account created successfully!');
-      
+
       // Redirect to dashboard
       navigate('/dashboard');
     } catch (error) {

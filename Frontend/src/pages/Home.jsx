@@ -1,7 +1,9 @@
 import { Link } from 'react-router-dom'
+import { useAuth } from '../context/AuthContext'
 import '../index.css'
 
 export default function Home() {
+  const { user } = useAuth()
   return (
     <div className="relative min-h-screen w-full overflow-hidden" style={{ backgroundColor: 'hsl(201, 100%, 13%)' }}>
       <video
@@ -30,12 +32,21 @@ export default function Home() {
           <Link to="/about" className="text-sm text-white/60 hover:text-white transition-colors">Reach Us</Link>
         </div>
 
-        <Link 
-          to="/login"
-          className="liquid-glass rounded-full px-6 py-2.5 text-sm text-white cursor-pointer hover:scale-105 transition-transform inline-block text-center no-underline"
-        >
-          Begin Journey
-        </Link>
+        {user ? (
+          <Link
+            to="/dashboard"
+            className="liquid-glass rounded-full px-6 py-2.5 text-sm text-white cursor-pointer hover:scale-105 transition-transform inline-block text-center no-underline"
+          >
+            Go to Dashboard
+          </Link>
+        ) : (
+          <Link 
+            to="/login"
+            className="liquid-glass rounded-full px-6 py-2.5 text-sm text-white cursor-pointer hover:scale-105 transition-transform inline-block text-center no-underline"
+          >
+            Begin Journey
+          </Link>
+        )}
       </nav>
 
       <section className="relative z-10 flex flex-col items-center justify-center text-center px-6 py-[90px] pt-32 pb-40">
@@ -50,12 +61,21 @@ export default function Home() {
           We're designing tools for deep thinkers, bold creators, and quiet rebels. Amid the chaos, we build digital spaces for sharp focus and inspired work.
         </p>
 
-        <Link 
-          to="/login"
-          className="animate-fade-rise-delay-2 liquid-glass rounded-full px-14 py-5 text-base text-white mt-12 cursor-pointer inline-block text-center no-underline hover:scale-105 transition-transform"
-        >
-          Begin Journey
-        </Link>
+        {user ? (
+          <Link
+            to="/dashboard"
+            className="animate-fade-rise-delay-2 liquid-glass rounded-full px-14 py-5 text-base text-white mt-12 cursor-pointer inline-block text-center no-underline hover:scale-105 transition-transform"
+          >
+            Go to Dashboard
+          </Link>
+        ) : (
+          <Link 
+            to="/login"
+            className="animate-fade-rise-delay-2 liquid-glass rounded-full px-14 py-5 text-base text-white mt-12 cursor-pointer inline-block text-center no-underline hover:scale-105 transition-transform"
+          >
+            Begin Journey
+          </Link>
+        )}
       </section>
     </div>
   )

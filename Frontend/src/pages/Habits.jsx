@@ -1,152 +1,89 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { toast } from 'sonner'
+import API from '../api'
 import '../index.css'
 
 export default function Habits() {
-  const weekDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
-  const monthDays = Array.from({ length: 31 }, (_, i) => i + 1)
-
-  const [habits, setHabits] = useState([
-    {
-      id: 1,
-      title: 'Morning Meditation',
-      category: 'Health',
-      streak: 12,
-      completed: [1, 2, 3, 4, 5, 8, 9, 10, 11, 12, 15, 16],
-      color: 'teal'
-    },
-    {
-      id: 2,
-      title: 'Read 30 Minutes',
-      category: 'Learning',
-      streak: 7,
-      completed: [2, 3, 4, 5, 9, 10, 11],
-      color: 'blue'
-    },
-    {
-      id: 3,
-      title: 'Exercise',
-      category: 'Health',
-      streak: 5,
-      completed: [1, 3, 5, 8, 10],
-      color: 'emerald'
-    },
-    {
-      id: 4,
-      title: 'Journal Writing',
-      category: 'Mindfulness',
-      streak: 21,
-      completed: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21],
-      color: 'purple'
-    },
-    {
-      id: 5,
-      title: 'Drink 3L Water',
-      category: 'Health',
-      streak: 3,
-      completed: [14, 15, 16],
-      color: 'cyan'
-    },
-  ])
-
+  const [habits, setHabits] = useState([])
+  const [loading, setLoading] = useState(true)
   const [isCreating, setIsCreating] = useState(false)
   const [newHabit, setNewHabit] = useState({ title: '', category: 'Health', color: 'teal' })
 
+  const weekDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+  const monthDays = Array.from({ length: 31 }, (_, i) => i + 1)
   const categories = ['Health', 'Learning', 'Mindfulness', 'Career', 'Finance', 'Other']
   const colorOptions = ['teal', 'blue', 'emerald', 'purple', 'cyan', 'yellow', 'pink']
 
-  // Color palette map — inline styles to avoid Tailwind purging dynamic class names
   const colorPalette = {
-    teal: { hex: '#14b8a6', bg: 'rgba(20,184,166,0.15)', border: 'rgba(20,184,166,0.4)', text: '#5eead4', activeBg: 'rgba(20,184,166,0.25)' },
-    blue: { hex: '#3b82f6', bg: 'rgba(59,130,246,0.15)', border: 'rgba(59,130,246,0.4)', text: '#93c5fd', activeBg: 'rgba(59,130,246,0.25)' },
-    emerald: { hex: '#10b981', bg: 'rgba(16,185,129,0.15)', border: 'rgba(16,185,129,0.4)', text: '#6ee7b7', activeBg: 'rgba(16,185,129,0.25)' },
-    purple: { hex: '#a855f7', bg: 'rgba(168,85,247,0.15)', border: 'rgba(168,85,247,0.4)', text: '#d8b4fe', activeBg: 'rgba(168,85,247,0.25)' },
-    cyan: { hex: '#06b6d4', bg: 'rgba(6,182,212,0.15)', border: 'rgba(6,182,212,0.4)', text: '#67e8f9', activeBg: 'rgba(6,182,212,0.25)' },
-    yellow: { hex: '#eab308', bg: 'rgba(234,179,8,0.15)', border: 'rgba(234,179,8,0.4)', text: '#fde047', activeBg: 'rgba(234,179,8,0.25)' },
-    pink: { hex: '#ec4899', bg: 'rgba(236,72,153,0.15)', border: 'rgba(236,72,153,0.4)', text: '#f9a8d4', activeBg: 'rgba(236,72,153,0.25)' },
+    teal:    { hex: '#14b8a6', bg: 'rgba(20,184,166,0.15)',   border: 'rgba(20,184,166,0.4)',   text: '#5eead4', activeBg: 'rgba(20,184,166,0.25)' },
+    blue:    { hex: '#3b82f6', bg: 'rgba(59,130,246,0.15)',   border: 'rgba(59,130,246,0.4)',   text: '#93c5fd', activeBg: 'rgba(59,130,246,0.25)' },
+    emerald: { hex: '#10b981', bg: 'rgba(16,185,129,0.15)',   border: 'rgba(16,185,129,0.4)',   text: '#6ee7b7', activeBg: 'rgba(16,185,129,0.25)' },
+    purple:  { hex: '#a855f7', bg: 'rgba(168,85,247,0.15)',   border: 'rgba(168,85,247,0.4)',   text: '#d8b4fe', activeBg: 'rgba(168,85,247,0.25)' },
+    cyan:    { hex: '#06b6d4', bg: 'rgba(6,182,212,0.15)',    border: 'rgba(6,182,212,0.4)',    text: '#67e8f9', activeBg: 'rgba(6,182,212,0.25)' },
+    yellow:  { hex: '#eab308', bg: 'rgba(234,179,8,0.15)',    border: 'rgba(234,179,8,0.4)',    text: '#fde047', activeBg: 'rgba(234,179,8,0.25)' },
+    pink:    { hex: '#ec4899', bg: 'rgba(236,72,153,0.15)',   border: 'rgba(236,72,153,0.4)',   text: '#f9a8d4', activeBg: 'rgba(236,72,153,0.25)' },
   }
 
   const getPalette = (color) => colorPalette[color] || colorPalette.teal
 
-  // Calculate streak: count consecutive completed days ending at today's day-of-month
-  const calcStreak = (completed) => {
-    const today = new Date().getDate()
-    let streak = 0
-    for (let i = today; i >= 1; i--) {
-      if (completed.includes(i)) streak++
-      else break
-    }
-    return streak
+  useEffect(() => { fetchHabits() }, [])
+
+  const fetchHabits = async () => {
+    try {
+      const { data } = await API.get('/habits')
+      setHabits(data)
+    } catch { toast.error('Failed to load habits') }
+    finally { setLoading(false) }
   }
 
-  const toggleDay = (habitId, day) => {
-    setHabits(prev => prev.map(h => {
-      if (h.id !== habitId) return h
-      const isCompleted = h.completed.includes(day)
-      const newCompleted = isCompleted
-        ? h.completed.filter(d => d !== day)
-        : [...h.completed, day].sort((a, b) => a - b)
-      return { ...h, completed: newCompleted, streak: calcStreak(newCompleted) }
-    }))
+  const toggleDay = async (habitId, day) => {
+    try {
+      const { data } = await API.patch(`/habits/${habitId}/toggle`, { day })
+      setHabits(prev => prev.map(h => h._id === habitId ? data : h))
+    } catch { toast.error('Failed to update habit') }
   }
 
-  const handleCreate = (e) => {
+  const handleCreate = async (e) => {
     e.preventDefault()
     if (!newHabit.title.trim()) return
-
-    setHabits(prev => [{
-      id: Date.now(),
-      title: newHabit.title,
-      category: newHabit.category,
-      streak: 0,
-      completed: [],
-      color: newHabit.color
-    }, ...prev])
-
-    setNewHabit({ title: '', category: 'Health', color: 'teal' })
-    setIsCreating(false)
+    try {
+      const { data } = await API.post('/habits', newHabit)
+      setHabits(prev => [data, ...prev])
+      setNewHabit({ title: '', category: 'Health', color: 'teal' })
+      setIsCreating(false)
+      toast.success('Habit created')
+    } catch { toast.error('Failed to create habit') }
   }
 
-  const handleDelete = (id) => {
-    setHabits(prev => prev.filter(h => h.id !== id))
+  const handleDelete = async (id) => {
+    try {
+      await API.delete(`/habits/${id}`)
+      setHabits(prev => prev.filter(h => h._id !== id))
+      toast.success('Habit deleted')
+    } catch { toast.error('Failed to delete habit') }
   }
 
   return (
     <div className="relative min-h-screen w-full overflow-hidden" style={{ backgroundColor: 'hsl(201, 100%, 13%)' }}>
-
-      {/* Background */}
       <div className="absolute inset-0 z-0 overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-b from-[hsl(201,100%,10%)] to-[hsl(201,100%,16%)] opacity-80" />
         <div className="absolute top-[-10%] left-[-10%] w-[60vw] h-[60vw] rounded-full bg-teal-900/30 blur-[120px] animate-drift-1" />
         <div className="absolute bottom-[-10%] right-[-10%] w-[50vw] h-[50vw] rounded-full bg-blue-900/30 blur-[100px] animate-drift-2" />
-        <div className="absolute inset-0 opacity-[0.03] pointer-events-none" style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")` }} />
       </div>
 
-      {/* Main Content */}
       <main className="relative z-10 max-w-7xl mx-auto px-8 pt-24 pb-12">
-
-        {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-12 animate-fade-rise">
           <div>
-            <h1 className="text-5xl md:text-6xl text-white tracking-tight" style={{ fontFamily: "'Instrument Serif', serif" }}>
-              Habit <em className="not-italic text-white/40">Tracker</em>
-            </h1>
-            <p className="text-white/50 text-base mt-4">
-              Build consistency, one day at a time.
-            </p>
+            <h1 className="text-5xl md:text-6xl text-white tracking-tight" style={{ fontFamily: "'Instrument Serif', serif" }}>Habit <em className="not-italic text-white/40">Tracker</em></h1>
+            <p className="text-white/50 text-base mt-4">Build consistency, one day at a time.</p>
           </div>
-
-          <button
-            onClick={() => setIsCreating(true)}
-            className="liquid-glass rounded-full px-6 py-3 text-sm text-white cursor-pointer hover:scale-105 transition-transform flex items-center gap-2"
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M12 5v14M5 12h14" />
-            </svg>
+          <button onClick={() => setIsCreating(true)} className="liquid-glass rounded-full px-6 py-3 text-sm text-white cursor-pointer hover:scale-105 transition-transform flex items-center gap-2">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M5 12h14" /></svg>
             New Habit
           </button>
         </div>
 
-        {/* Stats Overview */}
+        {/* Stats */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-12">
           {[
             { label: 'Total Habits', value: habits.length },
@@ -162,48 +99,29 @@ export default function Habits() {
           ))}
         </div>
 
-        {/* Create Habit Form */}
+        {/* Create Form */}
         {isCreating && (
           <div className="animate-fade-rise mb-12">
             <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-black/20 backdrop-blur-2xl shadow-2xl shadow-black/50">
               <div className="absolute -top-[100px] -left-[100px] w-[300px] h-[300px] bg-teal-500/20 rounded-full blur-[100px] pointer-events-none" />
-
               <div className="relative p-8">
                 <div className="flex items-center justify-between mb-6">
-                  <h2 className="text-2xl text-white" style={{ fontFamily: "'Instrument Serif', serif" }}>
-                    Create New Habit
-                  </h2>
+                  <h2 className="text-2xl text-white" style={{ fontFamily: "'Instrument Serif', serif" }}>Create New Habit</h2>
                   <button onClick={() => setIsCreating(false)} className="text-white/40 hover:text-white transition-colors">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M18 6 6 18M6 6l12 12" />
-                    </svg>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18M6 6l12 12" /></svg>
                   </button>
                 </div>
-
                 <form onSubmit={handleCreate} className="flex flex-col md:flex-row gap-4 items-end">
                   <div className="flex-1">
                     <label className="text-white/40 text-sm mb-2 block">Habit Name</label>
-                    <input
-                      type="text"
-                      value={newHabit.title}
-                      onChange={(e) => setNewHabit({ ...newHabit, title: e.target.value })}
-                      className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white placeholder:text-white/30 focus:outline-none focus:border-teal-500/50 focus:bg-white/10 transition-all duration-300"
-                      placeholder="e.g., Read 30 minutes..."
-                      required
-                    />
+                    <input type="text" value={newHabit.title} onChange={e => setNewHabit({...newHabit, title: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white placeholder:text-white/30 focus:outline-none focus:border-teal-500/50 focus:bg-white/10 transition-all duration-300" placeholder="e.g., Read 30 minutes..." required />
                   </div>
-
                   <div>
                     <label className="text-white/40 text-sm mb-2 block">Category</label>
-                    <select
-                      value={newHabit.category}
-                      onChange={(e) => setNewHabit({ ...newHabit, category: e.target.value })}
-                      className="w-40 bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white focus:outline-none focus:border-teal-500/50 focus:bg-white/10 transition-all duration-300"
-                    >
+                    <select value={newHabit.category} onChange={e => setNewHabit({...newHabit, category: e.target.value})} className="w-40 bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white focus:outline-none focus:border-teal-500/50 focus:bg-white/10 transition-all duration-300">
                       {categories.map(cat => <option key={cat} value={cat} className="bg-[hsl(201,100%,13%)]">{cat}</option>)}
                     </select>
                   </div>
-
                   <div>
                     <label className="text-white/40 text-sm mb-2 block">Color</label>
                     <div className="flex gap-2">
@@ -211,27 +129,13 @@ export default function Habits() {
                         const pal = getPalette(color)
                         const isSelected = newHabit.color === color
                         return (
-                          <button
-                            key={color}
-                            type="button"
-                            onClick={() => setNewHabit({ ...newHabit, color })}
-                            className="w-8 h-8 rounded-full border-2 transition-all duration-300"
-                            style={{
-                              backgroundColor: pal.hex,
-                              borderColor: isSelected ? '#ffffff' : 'rgba(255,255,255,0.2)',
-                              boxShadow: isSelected ? `0 0 0 3px ${pal.hex}55` : 'none',
-                              transform: isSelected ? 'scale(1.2)' : 'scale(1)',
-                            }}
-                            title={color}
-                          />
+                          <button key={color} type="button" onClick={() => setNewHabit({...newHabit, color})} className="w-8 h-8 rounded-full border-2 transition-all duration-300"
+                            style={{ backgroundColor: pal.hex, borderColor: isSelected ? '#ffffff' : 'rgba(255,255,255,0.2)', boxShadow: isSelected ? `0 0 0 3px ${pal.hex}55` : 'none', transform: isSelected ? 'scale(1.2)' : 'scale(1)' }} title={color} />
                         )
                       })}
                     </div>
                   </div>
-
-                  <button type="submit" className="liquid-glass px-8 py-3 rounded-xl text-white font-medium hover:scale-[1.02] active:scale-[0.98] transition-all duration-300">
-                    Create
-                  </button>
+                  <button type="submit" className="liquid-glass px-8 py-3 rounded-xl text-white font-medium hover:scale-[1.02] active:scale-[0.98] transition-all duration-300">Create</button>
                 </form>
               </div>
             </div>
@@ -239,136 +143,70 @@ export default function Habits() {
         )}
 
         {/* Habits List */}
-        <div className="space-y-6">
-          {habits.map((habit, index) => (
-            <div key={habit.id} className="group relative overflow-hidden rounded-3xl border border-white/10 bg-black/20 backdrop-blur-2xl shadow-2xl shadow-black/50 animate-fade-rise" style={{ animationDelay: `${index * 100}ms` }}>
-              {/* Coloured ambient glow using inline style */}
-              <div
-                className="absolute -top-[100px] -left-[100px] w-[300px] h-[300px] rounded-full blur-[100px] pointer-events-none"
-                style={{ backgroundColor: getPalette(habit.color).hex + '1a' }}
-              />
-
-              <div className="relative p-8">
-                <div className="flex items-start justify-between mb-6">
-                  <div className="flex items-center gap-4">
-                    {/* Habit icon with per-color inline styles */}
-                    <div
-                      className="w-12 h-12 rounded-2xl flex items-center justify-center"
-                      style={{
-                        backgroundColor: getPalette(habit.color).activeBg,
-                        border: `1px solid ${getPalette(habit.color).border}`,
-                      }}
-                    >
-                      <svg style={{ color: getPalette(habit.color).text }} width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
-                      </svg>
-                    </div>
-                    <div>
-                      <h3 className="text-xl text-white group-hover:text-teal-200 transition-colors" style={{ fontFamily: "'Instrument Serif', serif" }}>
-                        {habit.title}
-                      </h3>
-                      <div className="flex items-center gap-3 mt-1">
-                        <span className="text-white/40 text-sm">{habit.category}</span>
-                        <span className="flex items-center gap-1 text-sm" style={{ color: getPalette(habit.color).text }}>
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
-                          </svg>
-                          {habit.streak} day streak
-                        </span>
+        {loading ? (
+          <div className="text-center py-24 text-white/40">Loading habits...</div>
+        ) : (
+          <div className="space-y-6">
+            {habits.map((habit, index) => (
+              <div key={habit._id} className="group relative overflow-hidden rounded-3xl border border-white/10 bg-black/20 backdrop-blur-2xl shadow-2xl shadow-black/50 animate-fade-rise" style={{ animationDelay: `${index * 100}ms` }}>
+                <div className="absolute -top-[100px] -left-[100px] w-[300px] h-[300px] rounded-full blur-[100px] pointer-events-none" style={{ backgroundColor: getPalette(habit.color).hex + '1a' }} />
+                <div className="relative p-8">
+                  <div className="flex items-start justify-between mb-6">
+                    <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 rounded-2xl flex items-center justify-center" style={{ backgroundColor: getPalette(habit.color).activeBg, border: `1px solid ${getPalette(habit.color).border}` }}>
+                        <svg style={{ color: getPalette(habit.color).text }} width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" /></svg>
+                      </div>
+                      <div>
+                        <h3 className="text-xl text-white group-hover:text-teal-200 transition-colors" style={{ fontFamily: "'Instrument Serif', serif" }}>{habit.title}</h3>
+                        <div className="flex items-center gap-3 mt-1">
+                          <span className="text-white/40 text-sm">{habit.category}</span>
+                          <span className="flex items-center gap-1 text-sm" style={{ color: getPalette(habit.color).text }}>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" /></svg>
+                            {habit.streak} day streak
+                          </span>
+                        </div>
                       </div>
                     </div>
+                    <button onClick={() => handleDelete(habit._id)} className="p-2 rounded-lg bg-white/5 border border-white/10 text-white/40 hover:bg-red-500/20 hover:text-red-400 hover:border-red-500/30 transition-all duration-300">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18" /><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" /><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" /></svg>
+                    </button>
                   </div>
-
-                  <button
-                    onClick={() => handleDelete(habit.id)}
-                    className="p-2 rounded-lg bg-white/5 border border-white/10 text-white/40 hover:bg-red-500/20 hover:text-red-400 hover:border-red-500/30 transition-all duration-300"
-                    title="Delete"
-                  >
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M3 6h18" />
-                      <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
-                      <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
-                    </svg>
-                  </button>
-                </div>
-
-                {/* Calendar Grid */}
-                <div>
-                  <div className="flex items-center justify-between mb-4">
-                    <h4 className="text-white/40 text-xs uppercase tracking-wider">
-                      {new Date().toLocaleString('default', { month: 'long', year: 'numeric' })}
-                    </h4>
-                    <div className="flex items-center gap-2">
-                      <span className="text-white/40 text-xs">{habit.completed.length} / {monthDays.length} days</span>
-                      <div className="w-20 h-1.5 bg-white/10 rounded-full overflow-hidden">
-                        <div
-                          className="h-full rounded-full transition-all duration-500"
-                          style={{
-                            width: `${(habit.completed.length / monthDays.length) * 100}%`,
-                            backgroundColor: getPalette(habit.color).hex,
-                          }}
-                        />
+                  <div>
+                    <div className="flex items-center justify-between mb-4">
+                      <h4 className="text-white/40 text-xs uppercase tracking-wider">{new Date().toLocaleString('default', { month: 'long', year: 'numeric' })}</h4>
+                      <div className="flex items-center gap-2">
+                        <span className="text-white/40 text-xs">{habit.completed.length} / {monthDays.length} days</span>
+                        <div className="w-20 h-1.5 bg-white/10 rounded-full overflow-hidden">
+                          <div className="h-full rounded-full transition-all duration-500" style={{ width: `${(habit.completed.length / monthDays.length) * 100}%`, backgroundColor: getPalette(habit.color).hex }} />
+                        </div>
                       </div>
                     </div>
-                  </div>
-
-                  {/* Week Headers */}
-                  <div className="grid grid-cols-7 gap-2 mb-2">
-                    {weekDays.map(day => (
-                      <div key={day} className="text-center text-white/30 text-xs py-2">{day}</div>
-                    ))}
-                  </div>
-
-                  {/* Days */}
-                  <div className="grid grid-cols-7 gap-2">
-                    {monthDays.map(day => {
-                      const isCompleted = habit.completed.includes(day)
-                      const pal = getPalette(habit.color)
-                      return (
-                        <button
-                          key={day}
-                          onClick={() => toggleDay(habit.id, day)}
-                          className="aspect-square rounded-xl border transition-all duration-300 flex items-center justify-center text-sm"
-                          style={isCompleted ? {
-                            backgroundColor: pal.activeBg,
-                            borderColor: pal.border,
-                            color: pal.text,
-                          } : {
-                            backgroundColor: 'rgba(255,255,255,0.04)',
-                            borderColor: 'rgba(255,255,255,0.08)',
-                            color: 'rgba(255,255,255,0.3)',
-                          }}
-                        >
-                          {day}
-                        </button>
-                      )
-                    })}
+                    <div className="grid grid-cols-7 gap-2 mb-2">
+                      {weekDays.map(day => <div key={day} className="text-center text-white/30 text-xs py-2">{day}</div>)}
+                    </div>
+                    <div className="grid grid-cols-7 gap-2">
+                      {monthDays.map(day => {
+                        const isCompleted = habit.completed.includes(day)
+                        const pal = getPalette(habit.color)
+                        return (
+                          <button key={day} onClick={() => toggleDay(habit._id, day)} className="aspect-square rounded-xl border transition-all duration-300 flex items-center justify-center text-sm"
+                            style={isCompleted ? { backgroundColor: pal.activeBg, borderColor: pal.border, color: pal.text } : { backgroundColor: 'rgba(255,255,255,0.04)', borderColor: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.3)' }}>
+                            {day}
+                          </button>
+                        )
+                      })}
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-          ))}
-        </div>
-
-        {habits.length === 0 && (
-          <div className="text-center py-24">
-            <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-white/5 border border-white/10 mb-6">
-              <svg className="text-white/30" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
-              </svg>
-            </div>
-            <h3 className="text-2xl text-white/60 mb-3" style={{ fontFamily: "'Instrument Serif', serif" }}>
-              No habits tracked
-            </h3>
-            <p className="text-white/40 mb-8">
-              Start building consistency by tracking your first habit.
-            </p>
-            <button
-              onClick={() => setIsCreating(true)}
-              className="liquid-glass rounded-full px-8 py-3 text-white hover:scale-105 transition-transform"
-            >
-              Track First Habit
-            </button>
+            ))}
+            {habits.length === 0 && (
+              <div className="text-center py-24">
+                <h3 className="text-2xl text-white/60 mb-3" style={{ fontFamily: "'Instrument Serif', serif" }}>No habits tracked</h3>
+                <p className="text-white/40 mb-8">Start building consistency by tracking your first habit.</p>
+                <button onClick={() => setIsCreating(true)} className="liquid-glass rounded-full px-8 py-3 text-white hover:scale-105 transition-transform">Track First Habit</button>
+              </div>
+            )}
           </div>
         )}
       </main>

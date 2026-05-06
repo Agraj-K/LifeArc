@@ -1,28 +1,70 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
+import { toast } from 'sonner'
+import API from '../api'
 import '../index.css'
 
 export default function Dashboard() {
-  const [stats, setStats] = useState({
-    events: 12,
-    goals: 5,
-    habits: 8,
-    journalEntries: 24,
-    streak: 7
-  })
+  const [stats, setStats] = useState({ events: 0, goals: 0, habits: 0, journalEntries: 0, streak: 0 })
+  const [recentEvents, setRecentEvents] = useState([])
+  const [goals, setGoals] = useState([])
+  const [aiInsights, setAiInsights] = useState(null)
+  const [loading, setLoading] = useState(true)
 
-  const [recentEvents, setRecentEvents] = useState([
-    { id: 1, title: 'Started New Job', category: 'Career', date: 'Mar 15, 2026', progress: 100 },
-    { id: 2, title: 'Marathon Training', category: 'Health', date: 'Mar 10, 2026', progress: 65 },
-    { id: 3, title: 'Learn React Native', category: 'Learning', date: 'Mar 5, 2026', progress: 40 },
-    { id: 4, title: 'Meditation Practice', category: 'Health', date: 'Mar 1, 2026', progress: 90 },
-  ])
+  useEffect(() => {
+    const fetchDashboard = async () => {
+      try {
+        const [profileRes, eventsRes, goalsRes, journalRes] = await Promise.all([
+          API.get('/profile'),
+          API.get('/events'),
+          API.get('/goals'),
+          API.get('/journal'),
+        ])
+        setStats(profileRes.data.stats)
+        setRecentEvents(eventsRes.data.slice(0, 4))
+        setGoals(goalsRes.data.slice(0, 3))
+        // Compute AI insights from last 5 journal entries
+        const recentJournal = journalRes.data.slice(0, 5)
+        setAiInsights(computeInsights(recentJournal))
+      } catch {
+        toast.error('Failed to load dashboard')
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchDashboard()
+  }, [])
 
-  const [goals, setGoals] = useState([
-    { id: 1, title: 'Get Promoted', target: 'Dec 2026', progress: 35 },
-    { id: 2, title: 'Run a Marathon', target: 'Nov 2026', progress: 60 },
-    { id: 3, title: 'Build LifeArc', target: 'Jun 2026', progress: 80 },
-  ])
+  const computeInsights = (entries) => {
+    if (!entries || entries.length === 0) return null
+    const positiveWords = ['happy', 'excited', 'great', 'amazing', 'proud', 'motivated', 'joy', 'achieved', 'awesome', 'wonderful', 'love', 'grateful', 'progress', 'success', 'confident']
+    const negativeWords = ['stressed', 'tired', 'anxious', 'overwhelmed', 'deadline', 'failed', 'behind', 'worried', 'difficult', 'bad', 'sad', 'exhausted', 'frustrated', 'stuck']
+    const allText = entries.map(e => `${e.title || ''} ${e.content || ''}`).join(' ').toLowerCase()
+    let pos = 0, neg = 0
+    positiveWords.forEach(w => { if (allText.includes(w)) pos++ })
+    negativeWords.forEach(w => { if (allText.includes(w)) neg++ })
+    const mood = pos > neg + 1 ? 'positive' : neg > pos + 1 ? 'stressed' : 'neutral'
+    const recommendations = {
+      positive: [
+        '🚀 Your momentum is great — set a stretch goal this week!',
+        '🏆 Log your recent win as a Life Event to celebrate progress.',
+      ],
+      stressed: [
+        '🎯 Break your current goals into smaller, manageable milestones.',
+        '🌿 Consider adding a short daily self-care habit to your routine.',
+      ],
+      neutral: [
+        '💡 Reflect on what matters most to you this week.',
+        '🔁 A consistent daily habit compounds into big growth over time.',
+      ],
+    }
+    const moodMeta = {
+      positive: { emoji: '😊', label: 'Positive', color: 'emerald' },
+      stressed: { emoji: '😓', label: 'Stressed', color: 'amber' },
+      neutral:  { emoji: '😐', label: 'Neutral',  color: 'blue' },
+    }
+    return { mood, meta: moodMeta[mood], recs: recommendations[mood], entriesAnalyzed: entries.length }
+  }
 
   return (
     <div className="relative min-h-screen w-full overflow-hidden" style={{ backgroundColor: 'hsl(201, 100%, 13%)' }}>
@@ -85,17 +127,18 @@ export default function Dashboard() {
               </div>
 
               <div className="space-y-4">
-                {recentEvents.map((event) => (
-                  <div key={event.id} className="group flex items-center gap-4 p-4 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 hover:border-white/20 transition-all duration-300">
+                {recentEvents.length === 0 ? (
+                  <p className="text-white/40 text-sm text-center py-6">No events yet. <Link to="/events" className="text-teal-400 hover:text-teal-300">Create one →</Link></p>
+                ) : recentEvents.map((event) => (
+                  <div key={event._id} className="group flex items-center gap-4 p-4 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 hover:border-white/20 transition-all duration-300">
                     <div className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center group-hover:border-teal-500/30 transition-colors">
                       <svg className="text-white/40 group-hover:text-teal-400 transition-colors" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <circle cx="12" cy="12" r="10"/>
-                        <polyline points="12 6 12 12 16 14"/>
+                        <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
                       </svg>
                     </div>
                     <div className="flex-1">
                       <h3 className="text-white font-medium group-hover:text-teal-200 transition-colors">{event.title}</h3>
-                      <p className="text-white/40 text-xs">{event.category} · {event.date}</p>
+                      <p className="text-white/40 text-xs">{event.category} · {event.startDate ? new Date(event.startDate).toLocaleDateString() : 'No date'}</p>
                     </div>
                     <div className="text-right">
                       <div className="text-white/60 text-sm">{event.progress}%</div>
@@ -124,17 +167,16 @@ export default function Dashboard() {
               </div>
 
               <div className="space-y-6">
-                {goals.map((goal) => (
-                  <div key={goal.id}>
+                {goals.length === 0 ? (
+                  <p className="text-white/40 text-sm text-center py-6">No goals yet. <Link to="/goals" className="text-teal-400 hover:text-teal-300">Create one →</Link></p>
+                ) : goals.map((goal) => (
+                  <div key={goal._id}>
                     <div className="flex items-center justify-between mb-2">
                       <h3 className="text-white font-medium">{goal.title}</h3>
-                      <span className="text-white/40 text-sm">{goal.target}</span>
+                      <span className="text-white/40 text-sm">{goal.targetDate ? new Date(goal.targetDate).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }) : 'No date'}</span>
                     </div>
                     <div className="w-full h-2 bg-white/10 rounded-full overflow-hidden">
-                      <div 
-                        className="h-full bg-gradient-to-r from-teal-500 to-blue-500 rounded-full transition-all duration-1000" 
-                        style={{ width: `${goal.progress}%` }} 
-                      />
+                      <div className="h-full bg-gradient-to-r from-teal-500 to-blue-500 rounded-full transition-all duration-1000" style={{ width: `${goal.progress}%` }} />
                     </div>
                     <div className="text-right text-white/40 text-xs mt-1">{goal.progress}% complete</div>
                   </div>
@@ -173,6 +215,51 @@ export default function Dashboard() {
             </Link>
           ))}
         </div>
+
+        {/* AI Insights Card */}
+        {aiInsights && (
+          <div className="mt-8 relative overflow-hidden rounded-3xl border border-purple-500/20 bg-black/20 backdrop-blur-2xl shadow-2xl shadow-black/50 animate-fade-rise">
+            <div className="absolute -top-[120px] -right-[120px] w-[350px] h-[350px] bg-purple-600/15 rounded-full blur-[120px] pointer-events-none" />
+            <div className="absolute -bottom-[60px] -left-[60px] w-[200px] h-[200px] bg-indigo-600/10 rounded-full blur-[80px] pointer-events-none" />
+            <div className="relative p-8">
+              {/* Header */}
+              <div className="flex items-center gap-4 mb-6">
+                <div className="w-12 h-12 rounded-2xl bg-purple-500/20 border border-purple-500/30 flex items-center justify-center">
+                  <svg className="text-purple-400" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/>
+                  </svg>
+                </div>
+                <div>
+                  <h2 className="text-2xl text-white" style={{ fontFamily: "'Instrument Serif', serif" }}>AI Insights</h2>
+                  <p className="text-white/30 text-xs">Based on your last {aiInsights.entriesAnalyzed} journal {aiInsights.entriesAnalyzed === 1 ? 'entry' : 'entries'}</p>
+                </div>
+                <div className={`ml-auto flex items-center gap-2 px-4 py-2 rounded-full border ${
+                  aiInsights.mood === 'positive' ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300' :
+                  aiInsights.mood === 'stressed' ? 'border-amber-500/30 bg-amber-500/10 text-amber-300' :
+                  'border-blue-500/30 bg-blue-500/10 text-blue-300'
+                }`}>
+                  <span className="text-lg">{aiInsights.meta.emoji}</span>
+                  <span className="text-sm font-medium">{aiInsights.meta.label} Mood</span>
+                </div>
+              </div>
+
+              {/* Recommendations */}
+              <div className="space-y-3">
+                <p className="text-white/40 text-xs uppercase tracking-wider mb-4">Recommendations for you</p>
+                {aiInsights.recs.map((rec, i) => (
+                  <div key={i} className="flex items-start gap-3 p-4 rounded-xl border border-purple-500/15 bg-purple-500/5 hover:bg-purple-500/10 hover:border-purple-500/25 transition-all duration-300">
+                    <span className="text-lg leading-none mt-0.5">{rec.split(' ')[0]}</span>
+                    <p className="text-white/70 text-sm leading-relaxed">{rec.split(' ').slice(1).join(' ')}</p>
+                  </div>
+                ))}
+              </div>
+
+              <Link to="/journal" className="mt-5 inline-flex items-center gap-2 text-purple-400 hover:text-purple-300 text-sm transition-colors">
+                Write in your journal →
+              </Link>
+            </div>
+          </div>
+        )}
       </main>
     </div>
   )
