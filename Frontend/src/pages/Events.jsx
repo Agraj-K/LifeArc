@@ -15,16 +15,53 @@ export default function Events() {
   const [suggestedCategory, setSuggestedCategory] = useState(null)
   const categories = ['Career', 'Health', 'Learning', 'Relationships', 'Finance', 'Travel', 'Other']
 
-  const suggestCategory = (title) => {
-    const t = title.toLowerCase()
-    if (/run|gym|workout|yoga|jog|swim|diet|health|exercise|walk|cycle|meditat|sleep|nutrition/.test(t)) return 'Health'
-    if (/read|course|learn|study|book|tutorial|react|python|javascript|code|class|lecture|exam|university|college|degree|skill/.test(t)) return 'Learning'
-    if (/job|work|project|client|meeting|interview|promotion|career|salary|office|deadline|task|deliver|launch|product/.test(t)) return 'Career'
-    if (/family|friend|date|wedding|party|visit|relationship|social|dinner|birthday|anniversary|connect/.test(t)) return 'Relationships'
-    if (/invest|save|budget|salary|pay|expense|finance|money|bank|loan|tax|stock|crypto/.test(t)) return 'Finance'
-    if (/trip|travel|vacation|flight|hotel|explore|journey|tour|visit|abroad|country|city/.test(t)) return 'Travel'
-    return null
+  const suggestCategory = (text) => {
+    if (!text || text.trim().length < 3) return null;
+    
+    const t = text.toLowerCase();
+    
+    const dict = {
+      Health: ['run', 'gym', 'workout', 'yoga', 'jog', 'swim', 'diet', 'health', 'exercise', 'walk', 'cycle', 'meditate', 'sleep', 'nutrition', 'hospital', 'doctor', 'therapy', 'sick', 'protein', 'fitness', 'weight', 'mental', 'running', 'walking', 'swimming', 'cycling'],
+      Learning: ['read', 'course', 'learn', 'study', 'book', 'tutorial', 'react', 'python', 'javascript', 'code', 'class', 'lecture', 'exam', 'university', 'college', 'degree', 'skill', 'school', 'math', 'science', 'history', 'student', 'reading', 'learning', 'studying'],
+      Career: ['job', 'work', 'project', 'client', 'meeting', 'interview', 'promotion', 'career', 'salary', 'office', 'deadline', 'task', 'deliver', 'launch', 'product', 'boss', 'colleague', 'business', 'startup', 'company', 'hire', 'fired', 'working'],
+      Relationships: ['family', 'friend', 'date', 'wedding', 'party', 'visit', 'relationship', 'social', 'dinner', 'birthday', 'anniversary', 'connect', 'love', 'mom', 'dad', 'sister', 'brother', 'wife', 'husband', 'partner', 'together', 'hangout', 'friends', 'dating'],
+      Finance: ['invest', 'save', 'budget', 'salary', 'pay', 'expense', 'finance', 'money', 'bank', 'loan', 'tax', 'stock', 'crypto', 'bought', 'buy', 'purchase', 'cost', 'price', 'wallet', 'rich', 'poor', 'debt', 'investing', 'saving', 'buying'],
+      Travel: ['trip', 'travel', 'vacation', 'flight', 'hotel', 'explore', 'journey', 'tour', 'visit', 'abroad', 'country', 'city', 'drive', 'roadtrip', 'beach', 'mountain', 'passport', 'fly', 'plane', 'train', 'ticket', 'airport', 'trek', 'trekking', 'hike', 'hiking', 'camp', 'camping', 'nature', 'traveling', 'exploring']
+    };
+
+    let scores = { Health: 0, Learning: 0, Career: 0, Relationships: 0, Finance: 0, Travel: 0 };
+    let maxScore = 0;
+    let bestCat = null;
+    
+    Object.keys(dict).forEach(cat => {
+      dict[cat].forEach(word => {
+        const regex = new RegExp(`\\b${word}\\b`, 'g');
+        const matches = t.match(regex);
+        if (matches) {
+          scores[cat] += matches.length;
+        }
+      });
+      if (scores[cat] > maxScore) {
+        maxScore = scores[cat];
+        bestCat = cat;
+      }
+    });
+
+    return maxScore > 0 ? bestCat : null;
   }
+
+  // Real-time AI categorization
+  useEffect(() => {
+    if (isCreating) {
+      const aiEnabled = localStorage.getItem('aiEnabled') !== 'false';
+      if (aiEnabled) {
+        const suggested = suggestCategory(`${formData.title} ${formData.description}`);
+        setSuggestedCategory(suggested);
+      } else {
+        setSuggestedCategory(null);
+      }
+    }
+  }, [formData.title, formData.description, isCreating]);
 
   useEffect(() => { fetchEvents() }, [])
 
@@ -32,7 +69,7 @@ export default function Events() {
     try {
       const { data } = await API.get('/events')
       setEvents(data)
-    } catch { toast.error('Failed to load events') }
+    } catch { toast.error('Failed to load archive') }
     finally { setLoading(false) }
   }
 
@@ -74,19 +111,19 @@ export default function Events() {
           headers: { 'Content-Type': 'multipart/form-data' }
         })
         setEvents(prev => prev.map(ev => ev._id === editingId ? data : ev))
-        toast.success('Event updated')
+        toast.success('Memory updated')
         setEditingId(null)
       } else {
         const { data } = await API.post('/events', dataToSend, {
           headers: { 'Content-Type': 'multipart/form-data' }
         })
         setEvents(prev => [data, ...prev])
-        toast.success('Event created')
+        toast.success('Memory created')
       }
       resetForm()
     } catch (err) {
       console.error(err)
-      toast.error('Failed to save event')
+      toast.error('Failed to save memory')
     }
   }
 
@@ -109,8 +146,8 @@ export default function Events() {
     try {
       await API.delete(`/events/${id}`)
       setEvents(prev => prev.filter(ev => ev._id !== id))
-      toast.success('Event deleted')
-    } catch { toast.error('Failed to delete event') }
+      toast.success('Memory deleted')
+    } catch { toast.error('Failed to delete memory') }
   }
 
   const filteredEvents = events.filter(ev =>
@@ -196,7 +233,7 @@ export default function Events() {
                   </div>
                   <div>
                     <label className="text-white/40 text-sm mb-2 block">Title</label>
-                    <input type="text" value={formData.title} onChange={e => { setFormData({ ...formData, title: e.target.value }); setSuggestedCategory(suggestCategory(e.target.value)) }} className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white placeholder:text-white/30 focus:outline-none focus:border-teal-500/50 transition-all" placeholder="What's this memory about?" required />
+                    <input type="text" value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white placeholder:text-white/30 focus:outline-none focus:border-teal-500/50 transition-all" placeholder="What's this memory about?" required />
                     {suggestedCategory && suggestedCategory !== formData.category && (
                       <button type="button" onClick={() => { setFormData({ ...formData, category: suggestedCategory }); setSuggestedCategory(null) }} className="mt-2 text-xs text-teal-400 bg-teal-400/10 px-2 py-1 rounded-full animate-fade-rise">✨ AI Suggests: {suggestedCategory}</button>
                     )}
@@ -284,12 +321,14 @@ export default function Events() {
                   </div>
 
                   {/* Actions Overlay */}
-                  <div className="absolute top-4 right-4 flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                    <button onClick={() => handleEdit(event)} className="p-2 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-white/60 hover:text-white hover:bg-white/20 transition-all">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" /></svg>
+                  <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                    <button onClick={() => handleEdit(event)} className="px-3 py-1.5 rounded-full bg-black/40 backdrop-blur-md border border-white/20 text-white/80 hover:text-white hover:bg-white/20 transition-all text-xs flex items-center gap-1.5 shadow-lg">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
+                      Edit
                     </button>
-                    <button onClick={() => handleDelete(event._id)} className="p-2 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-white/60 hover:text-red-400 hover:bg-red-500/20 transition-all">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 6h18" /><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" /><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" /></svg>
+                    <button onClick={() => handleDelete(event._id)} className="px-3 py-1.5 rounded-full bg-red-500/20 backdrop-blur-md border border-red-500/30 text-red-300 hover:text-red-200 hover:bg-red-500/40 transition-all text-xs flex items-center gap-1.5 shadow-lg">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+                      Delete
                     </button>
                   </div>
                 </div>

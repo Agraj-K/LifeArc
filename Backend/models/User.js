@@ -7,6 +7,8 @@ const userSchema = new mongoose.Schema({
   password: { type: String, required: true },
   role:     { type: String, enum: ['user', 'admin'], default: 'user' },
   status:   { type: String, enum: ['Active', 'Suspended'], default: 'Active' },
+  suspensionReason: { type: String, default: '' },
+  suspensionCount: { type: Number, default: 0 },
   // Profile fields
   bio:      { type: String, default: '' },
   location: { type: String, default: '' },

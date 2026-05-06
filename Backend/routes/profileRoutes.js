@@ -82,4 +82,28 @@ router.put('/', async (req, res) => {
   }
 });
 
+// @route   DELETE /api/profile
+// @desc    Delete user account and all associated data
+// @access  Private
+router.delete('/', async (req, res) => {
+  try {
+    const userId = req.user._id;
+
+    // Delete all associated data
+    await Promise.all([
+      Journal.deleteMany({ userId }),
+      Goal.deleteMany({ userId }),
+      Habit.deleteMany({ userId }),
+      Event.deleteMany({ userId }),
+    ]);
+
+    // Finally delete the user
+    await User.findByIdAndDelete(userId);
+
+    res.json({ message: 'User account and all data deleted successfully' });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
 module.exports = router;

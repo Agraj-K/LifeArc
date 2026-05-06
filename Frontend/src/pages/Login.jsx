@@ -12,6 +12,9 @@ export default function Login() {
   const [name, setName] = useState('')
   const [loading, setLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
+  const [suspensionReason, setSuspensionReason] = useState('')
+  const [appealMessage, setAppealMessage] = useState('')
+  const [submittingAppeal, setSubmittingAppeal] = useState(false)
   const navigate = useNavigate()
   const location = useLocation()
   const { login } = useAuth()
@@ -54,6 +57,12 @@ export default function Login() {
       // Redirect to dashboard
       navigate('/dashboard');
     } catch (error) {
+      if (error.response?.status === 403 && error.response?.data?.reason) {
+        localStorage.setItem('suspensionReason', error.response.data.reason);
+        localStorage.setItem('suspensionEmail', email);
+        window.location.href = '/suspended';
+        return;
+      }
       const message = error.response?.data?.message || 'Something went wrong. Please try again.';
       toast.error(message);
     } finally {
@@ -106,7 +115,7 @@ export default function Login() {
               </p>
             </div>
 
-            {/* Form */}
+            {/* Login/Signup Form */}
             <form className="flex flex-col gap-5" onSubmit={handleSubmit}>
               
               {mode === 'signup' && (
@@ -212,21 +221,22 @@ export default function Login() {
                 )}
               </button>
             </form>
-
+            )}
 
             {/* Footer Toggle */}
-            <div className="text-center pt-2">
-              <p className="text-white/40 text-sm">
-                {mode === 'login' ? "Don't have an account?" : "Already have an account?"}
-                <button 
-                  onClick={toggleMode}
-                  className="ml-2 text-teal-400 hover:text-teal-300 font-medium transition-colors hover:underline underline-offset-4 bg-transparent border-none cursor-pointer"
-                >
-                  {mode === 'login' ? 'Sign Up' : 'Sign In'}
-                </button>
-              </p>
-            </div>
-
+            {mode !== 'suspended' && (
+              <div className="text-center pt-2">
+                <p className="text-white/40 text-sm">
+                  {mode === 'login' ? "Don't have an account?" : "Already have an account?"}
+                  <button 
+                    onClick={toggleMode}
+                    className="ml-2 text-teal-400 hover:text-teal-300 font-medium transition-colors hover:underline underline-offset-4 bg-transparent border-none cursor-pointer"
+                  >
+                    {mode === 'login' ? 'Sign Up' : 'Sign In'}
+                  </button>
+                </p>
+              </div>
+            )}
           </div>
         </div>
         

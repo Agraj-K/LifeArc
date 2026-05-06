@@ -10,6 +10,7 @@ import Admin from './pages/Admin'
 import Profile from './pages/Profile'
 import About from './pages/About'
 import Feedback from './pages/Feedback'
+import Suspended from './pages/Suspended'
 import './index.css'
 
 // Redirects to /login if user is not authenticated
@@ -49,10 +50,12 @@ function Navigation() {
             /* Registered User Links */
             <>
               <Link to="/dashboard" className="nav-link font-medium text-white/90">Dashboard</Link>
-              <Link to="/events" className="nav-link">Events</Link>
+              <Link to="/events" className="nav-link">Archive</Link>
               <Link to="/journal" className="nav-link">Journal</Link>
               <Link to="/goals" className="nav-link">Goals</Link>
-              <Link to="/feedback" className="nav-link">Feedback</Link>
+              {user.role !== 'admin' && (
+                <Link to="/feedback" className="nav-link">Feedback</Link>
+              )}
             </>
           ) : (
             /* Guest User Links */
@@ -115,6 +118,7 @@ export default function App() {
           <Route path="/"          element={user ? <Navigate to="/dashboard" replace /> : <Home />} />
           <Route path="/login"     element={user ? <Navigate to="/dashboard" replace /> : <Login />} />
           <Route path="/register"  element={user ? <Navigate to="/dashboard" replace /> : <Login />} />
+          <Route path="/suspended" element={<Suspended />} />
           <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
           <Route path="/journal"   element={<Journal />} />
           <Route path="/about"     element={<About />} />

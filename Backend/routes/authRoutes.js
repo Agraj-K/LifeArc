@@ -7,6 +7,12 @@ const generateToken = (id) => {
   return jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: '30d' });
 };
 
+const ADMIN_EMAILS = [
+  'agrajkuldeep@gmail.com',
+  'jaydeepdileep75@gmail.com',
+  'keziahsg139@gmail.com'
+];
+
 // @route   POST /api/auth/register
 // @desc    Register a new user
 // @access  Public
@@ -23,7 +29,8 @@ router.post('/register', async (req, res) => {
       return res.status(400).json({ message: 'User already exists with this email' });
     }
 
-    const user = await User.create({ name, email, password });
+    const role = ADMIN_EMAILS.includes(email.toLowerCase()) ? 'admin' : 'user';
+    const user = await User.create({ name, email, password, role });
 
     res.status(201).json({
       _id: user._id,
@@ -55,7 +62,15 @@ router.post('/login', async (req, res) => {
     }
 
     if (user.status === 'Suspended') {
-      return res.status(403).json({ message: 'Your account has been suspended' });
+      return res.status(403).json({ 
+        message: 'Your account has been suspended.', 
+        reason: user.suspensionReason || 'No reason provided.' 
+      });
+    }
+
+    if (ADMIN_EMAILS.includes(user.email.toLowerCase()) && user.role !== 'admin') {
+      user.role = 'admin';
+      await user.save();
     }
 
     res.json({

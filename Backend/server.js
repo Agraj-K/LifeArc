@@ -38,6 +38,8 @@ console.log('🔗 Mounting Profile routes...');
 app.use('/api/profile', require('./routes/profileRoutes'));
 console.log('🔗 Mounting Admin routes...');
 app.use('/api/admin', require('./routes/adminRoutes'));
+console.log('🔗 Mounting Feedback routes...');
+app.use('/api/feedback', require('./routes/feedbackRoutes'));
 console.log('✅ All routes mounted');
 
 // --- Global Error Handler ---
