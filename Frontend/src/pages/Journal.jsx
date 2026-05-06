@@ -1,22 +1,44 @@
 import { useState, useEffect } from 'react'
+import { Link } from 'react-router-dom'
 import { toast } from 'sonner'
+import { useAuth } from '../context/AuthContext'
 import API from '../api'
 import '../index.css'
 
 export default function Journal() {
+  const { user } = useAuth()
   const [entries, setEntries] = useState([])
+  const [publicEntries, setPublicEntries] = useState([])
   const [loading, setLoading] = useState(true)
+  const [activeTab, setActiveTab] = useState('my') // 'my' or 'community'
   const [isWriting, setIsWriting] = useState(false)
   const [editingId, setEditingId] = useState(null)
+  
+  // Form State
   const [title, setTitle] = useState('')
   const [content, setContent] = useState('')
+  const [isPublic, setIsPublic] = useState(false)
+  const [mood, setMood] = useState('Neutral')
+  
   const [selectedEntry, setSelectedEntry] = useState(null)
   const [showSummary, setShowSummary] = useState(false)
   const [weeklySummary, setWeeklySummary] = useState('')
 
-  useEffect(() => { fetchEntries() }, [])
+  const moods = ['Happy', 'Grateful', 'Neutral', 'Stressed', 'Reflective', 'Productive']
+
+  useEffect(() => { 
+    // Guests are locked to 'community'
+    if (!user) {
+      setActiveTab('community')
+      fetchPublicEntries()
+    } else {
+      if (activeTab === 'my') fetchEntries()
+      else fetchPublicEntries()
+    }
+  }, [activeTab, user])
 
   const fetchEntries = async () => {
+    setLoading(true)
     try {
       const { data } = await API.get('/journal')
       setEntries(data)
@@ -24,26 +46,50 @@ export default function Journal() {
     finally { setLoading(false) }
   }
 
+  const fetchPublicEntries = async () => {
+    setLoading(true)
+    try {
+      const { data } = await API.get('/journal/public')
+      setPublicEntries(data)
+    } catch { toast.error('Failed to load community feed') }
+    finally { setLoading(false) }
+  }
+
   const handleSave = async () => {
     if (!title.trim() && !content.trim()) return
     try {
+      const payload = { title, content, isPublic, mood }
       if (editingId) {
-        const { data } = await API.put(`/journal/${editingId}`, { title, content })
+        const { data } = await API.put(`/journal/${editingId}`, payload)
         setEntries(prev => prev.map(e => e._id === editingId ? data : e))
         toast.success('Entry updated')
         setEditingId(null)
       } else {
-        const { data } = await API.post('/journal', { title, content })
+        const { data } = await API.post('/journal', payload)
         setEntries(prev => [data, ...prev])
         toast.success('Entry saved')
       }
-      setTitle(''); setContent(''); setIsWriting(false)
+      resetForm()
     } catch { toast.error('Failed to save entry') }
   }
 
+  const resetForm = () => {
+    setTitle('')
+    setContent('')
+    setIsPublic(false)
+    setMood('Neutral')
+    setEditingId(null)
+    setIsWriting(false)
+  }
+
   const handleEdit = (entry) => {
-    setTitle(entry.title); setContent(entry.content)
-    setEditingId(entry._id); setIsWriting(true); setSelectedEntry(null)
+    setTitle(entry.title)
+    setContent(entry.content)
+    setIsPublic(entry.isPublic || false)
+    setMood(entry.mood || 'Neutral')
+    setEditingId(entry._id)
+    setIsWriting(true)
+    setSelectedEntry(null)
   }
 
   const handleDelete = async (id) => {
@@ -55,8 +101,7 @@ export default function Journal() {
     } catch { toast.error('Failed to delete entry') }
   }
 
-  const handleNew = () => { setTitle(''); setContent(''); setEditingId(null); setIsWriting(true); setSelectedEntry(null) }
-  const handleClose = () => { setTitle(''); setContent(''); setEditingId(null); setIsWriting(false) }
+  const handleNew = () => { resetForm(); setIsWriting(true); setSelectedEntry(null) }
 
   const generateWeeklySummary = () => {
     const oneWeekAgo = new Date()
@@ -69,130 +114,131 @@ export default function Journal() {
       return
     }
 
-    // Mood keyword scoring
-    const positiveWords = ['happy', 'excited', 'great', 'amazing', 'proud', 'motivated', 'joy', 'achieved', 'awesome', 'wonderful', 'love', 'grateful', 'progress', 'success']
-    const negativeWords = ['stressed', 'tired', 'anxious', 'overwhelmed', 'deadline', 'failed', 'behind', 'worried', 'difficult', 'hard', 'bad', 'sad', 'exhausted', 'frustrated']
-    let positiveScore = 0, negativeScore = 0
-    const allText = weekEntries.map(e => `${e.title} ${e.content}`).join(' ').toLowerCase()
-    positiveWords.forEach(w => { if (allText.includes(w)) positiveScore++ })
-    negativeWords.forEach(w => { if (allText.includes(w)) negativeScore++ })
-
-    const mood = positiveScore > negativeScore + 1 ? 'positive' : negativeScore > positiveScore + 1 ? 'stressed' : 'mixed'
-    const titles = weekEntries.map(e => e.title).filter(Boolean)
-
-    // Extract themes from titles
-    const themes = []
-    if (/project|work|task|deadline|deliver/i.test(allText)) themes.push('project work')
-    if (/study|exam|class|learn|course/i.test(allText)) themes.push('academics')
-    if (/gym|run|workout|health|exercise/i.test(allText)) themes.push('health & fitness')
-    if (/family|friend|social|meet/i.test(allText)) themes.push('relationships')
-    if (/reflect|think|feel|thought/i.test(allText)) themes.push('personal reflection')
-    const themeStr = themes.length > 0 ? themes.slice(0, 3).join(', ') : 'various topics'
-
-    const moodSentences = {
-      positive: `Your mood this week was largely positive — you showed motivation and made meaningful progress.`,
-      stressed: `Your mood seemed mixed this week, with some stress and pressure appearing in your entries. Remember that every challenge is part of growth.`,
-      mixed: `Your mood was balanced this week — some highs, some challenges, but you kept going.`
-    }
-
-    const summary = `This week, you wrote ${weekEntries.length} journal ${weekEntries.length === 1 ? 'entry' : 'entries'}. ` +
-      `Your writing touched on ${themeStr}. ` +
-      moodSentences[mood] +
-      ` ${weekEntries.length >= 4 ? 'Your consistency this week is commendable — keep the habit going!' : 'Even a few entries go a long way in building self-awareness.'}`
-
+    const summary = `This week, you wrote ${weekEntries.length} journal ${weekEntries.length === 1 ? 'entry' : 'entries'}. Your consistency in reflection is building a stronger self-narrative. Keep capturing your journey!`
     setWeeklySummary(summary)
     setShowSummary(true)
   }
 
   const fmt = (d) => new Date(d).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
-  const fmtTime = (d) => new Date(d).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
+  const fmtRelative = (d) => {
+    const now = new Date();
+    const diff = Math.floor((now - new Date(d)) / 1000);
+    if (diff < 60) return 'just now';
+    if (diff < 3600) return `${Math.floor(diff / 60)}m`;
+    if (diff < 86400) return `${Math.floor(diff / 3600)}h`;
+    return new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  }
 
   return (
     <div className="relative min-h-screen w-full overflow-hidden" style={{ backgroundColor: 'hsl(201, 100%, 13%)' }}>
+      {/* Background elements */}
       <div className="absolute inset-0 z-0 overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-b from-[hsl(201,100%,10%)] to-[hsl(201,100%,16%)] opacity-80" />
-        <div className="absolute top-[-10%] left-[-10%] w-[60vw] h-[60vw] rounded-full bg-teal-900/30 blur-[120px] animate-drift-1" />
-        <div className="absolute bottom-[-10%] right-[-10%] w-[50vw] h-[50vw] rounded-full bg-blue-900/30 blur-[100px] animate-drift-2" />
+        <div className="absolute top-[-10%] left-[-10%] w-[60vw] h-[60vw] rounded-full bg-teal-900/30 blur-[120px]" />
+        <div className="absolute bottom-[-10%] right-[-10%] w-[50vw] h-[50vw] rounded-full bg-blue-900/30 blur-[100px]" />
       </div>
 
-      <main className="relative z-10 max-w-7xl mx-auto px-8 pt-24 pb-12">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-12 animate-fade-rise">
-          <div>
-            <h1 className="text-5xl md:text-6xl text-white tracking-tight" style={{ fontFamily: "'Instrument Serif', serif" }}>
-              Your <em className="not-italic text-white/40">Journal</em>
+      <main className="relative z-10 max-w-4xl mx-auto px-6 pt-24 pb-12">
+        {/* Header Section */}
+        <div className="flex flex-col gap-6 mb-12 animate-fade-rise">
+          <div className="flex items-center justify-between">
+            <h1 className="text-4xl md:text-5xl text-white tracking-tight" style={{ fontFamily: "'Instrument Serif', serif" }}>
+              {activeTab === 'my' ? 'Personal' : 'Community'} <em className="not-italic text-white/40">Feed</em>
             </h1>
-            <p className="text-white/50 text-base mt-4 max-w-xl leading-relaxed">A quiet space for your thoughts, reflections, and daily musings.</p>
+            
+            <div className="flex items-center gap-3">
+              {user && (
+                <button onClick={isWriting ? resetForm : handleNew} className="liquid-glass rounded-full px-5 py-2.5 text-sm text-white flex items-center gap-2">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    {isWriting ? <path d="M18 6 6 18M6 6l12 12"/> : <path d="M12 5v14M5 12h14"/>}
+                  </svg>
+                  {isWriting ? 'Close' : 'Post Reflection'}
+                </button>
+              )}
+            </div>
           </div>
-          <div className="flex items-center gap-3">
-            {entries.length > 0 && (
-              <button
-                onClick={generateWeeklySummary}
-                className="flex items-center gap-2 px-5 py-3 rounded-full border border-purple-500/30 bg-purple-500/10 text-purple-300 text-sm hover:bg-purple-500/20 hover:border-purple-400/50 transition-all duration-300"
+
+          {/* Tab Switcher (Only for Users) */}
+          {user && (
+            <div className="flex items-center gap-8 border-b border-white/5">
+              <button 
+                onClick={() => setActiveTab('my')} 
+                className={`text-sm pb-4 transition-all relative ${activeTab === 'my' ? 'text-white font-medium' : 'text-white/40 hover:text-white'}`}
               >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/>
-                </svg>
-                Weekly Summary
+                For You
+                {activeTab === 'my' && <div className="absolute bottom-0 left-0 right-0 h-1 bg-teal-500 rounded-t-full" />}
               </button>
-            )}
-            <button onClick={isWriting ? handleClose : handleNew} className="liquid-glass rounded-full px-6 py-3 text-sm text-white cursor-pointer hover:scale-105 transition-transform flex items-center gap-2">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                {isWriting ? <path d="M18 6 6 18M6 6l12 12"/> : <path d="M12 5v14M5 12h14"/>}
-              </svg>
-              {isWriting ? 'Close' : 'New Entry'}
-            </button>
-          </div>
+              <button 
+                onClick={() => setActiveTab('community')} 
+                className={`text-sm pb-4 transition-all relative ${activeTab === 'community' ? 'text-white font-medium' : 'text-white/40 hover:text-white'}`}
+              >
+                Community
+                {activeTab === 'community' && <div className="absolute bottom-0 left-0 right-0 h-1 bg-teal-500 rounded-t-full" />}
+              </button>
+            </div>
+          )}
+
+          {/* Guest CTA */}
+          {!user && (
+            <div className="p-6 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-between gap-6 backdrop-blur-md">
+              <div>
+                <h3 className="text-white font-medium">New to Velora?</h3>
+                <p className="text-white/40 text-sm mt-1">Join the community to start sharing your own reflections.</p>
+              </div>
+              <Link to="/register" className="liquid-glass rounded-full px-6 py-2.5 text-sm text-white whitespace-nowrap" style={{ textDecoration: 'none' }}>Join Now</Link>
+            </div>
+          )}
         </div>
 
         {/* Weekly Summary Modal */}
         {showSummary && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-6" style={{ backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(12px)' }}>
-            <div className="relative max-w-lg w-full rounded-3xl border border-white/10 bg-[hsl(201,100%,8%)] shadow-2xl shadow-black/70 p-8 animate-fade-rise">
-              <div className="absolute -top-[80px] left-1/2 -translate-x-1/2 w-[200px] h-[200px] bg-purple-500/20 rounded-full blur-[80px] pointer-events-none" />
-              <div className="relative">
-                <div className="flex items-center gap-3 mb-6">
-                  <div className="w-10 h-10 rounded-xl bg-purple-500/20 border border-purple-500/30 flex items-center justify-center">
-                    <svg className="text-purple-400" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/>
-                    </svg>
-                  </div>
-                  <div>
-                    <h2 className="text-xl text-white" style={{ fontFamily: "'Instrument Serif', serif" }}>Weekly Journal Summary</h2>
-                    <p className="text-white/30 text-xs">AI-generated · last 7 days</p>
-                  </div>
-                  <button onClick={() => setShowSummary(false)} className="ml-auto text-white/40 hover:text-white transition-colors">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
-                  </button>
-                </div>
-                <div className="rounded-2xl border border-purple-500/20 bg-purple-500/5 p-6">
-                  <p className="text-white/80 leading-relaxed text-sm">{weeklySummary}</p>
-                </div>
-                <button
-                  onClick={() => setShowSummary(false)}
-                  className="mt-6 w-full py-3 rounded-xl border border-white/10 text-white/60 hover:bg-white/5 hover:text-white transition-all duration-300 text-sm"
-                >
-                  Close
-                </button>
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-black/60 backdrop-blur-md">
+            <div className="relative max-w-lg w-full rounded-3xl border border-white/10 bg-[hsl(201,100%,8%)] p-8 animate-fade-rise">
+              <h2 className="text-xl text-white mb-4" style={{ fontFamily: "'Instrument Serif', serif" }}>Weekly Journal Summary</h2>
+              <div className="rounded-2xl border border-purple-500/20 bg-purple-500/5 p-6">
+                <p className="text-white/80 leading-relaxed text-sm">{weeklySummary}</p>
               </div>
+              <button onClick={() => setShowSummary(false)} className="mt-6 w-full py-3 rounded-xl border border-white/10 text-white/60 hover:text-white transition-all">Close</button>
             </div>
           </div>
         )}
 
+        {/* Writing View */}
         {isWriting && (
-          <div className="animate-fade-rise mb-16">
-            <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-black/20 backdrop-blur-2xl shadow-2xl shadow-black/50">
-              <div className="absolute -top-[100px] -left-[100px] w-[300px] h-[300px] bg-teal-500/20 rounded-full blur-[100px] pointer-events-none" />
-              <div className="relative p-8 md:p-12">
-                <div className="flex items-center justify-between mb-8">
-                  <h2 className="text-2xl text-white" style={{ fontFamily: "'Instrument Serif', serif" }}>{editingId ? 'Edit Entry' : 'New Entry'}</h2>
-                  <button onClick={handleClose} className="text-white/40 hover:text-white transition-colors text-sm">Cancel</button>
+          <div className="animate-fade-rise mb-12">
+            <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-black/20 backdrop-blur-2xl">
+              <div className="p-6 md:p-8">
+                <div className="flex flex-wrap gap-2 mb-6">
+                  {moods.map(m => (
+                    <button key={m} onClick={() => setMood(m)} className={`px-3 py-1.5 rounded-lg text-xs border transition-all ${mood === m ? 'bg-teal-500/20 border-teal-500/50 text-teal-300' : 'border-white/5 text-white/30 hover:border-white/10'}`}>{m}</button>
+                  ))}
                 </div>
-                <div className="space-y-6">
-                  <input type="text" value={title} onChange={e => setTitle(e.target.value)} placeholder="Entry Title..." className="w-full bg-white/5 border border-white/10 rounded-xl py-4 px-6 text-white text-lg placeholder:text-white/30 focus:outline-none focus:border-teal-500/50 focus:bg-white/10 transition-all duration-300" style={{ fontFamily: "'Instrument Serif', serif" }} />
-                  <textarea value={content} onChange={e => setContent(e.target.value)} placeholder="Write your thoughts here..." rows={12} className="w-full bg-white/5 border border-white/10 rounded-xl py-4 px-6 text-white placeholder:text-white/30 focus:outline-none focus:border-teal-500/50 focus:bg-white/10 transition-all duration-300 resize-none leading-relaxed" />
-                  <div className="flex justify-end gap-4">
-                    <button onClick={handleClose} className="px-6 py-3 rounded-xl text-white/60 hover:text-white border border-white/10 hover:border-white/30 transition-all duration-300">Discard</button>
-                    <button onClick={handleSave} className="liquid-glass px-8 py-3 rounded-xl text-white font-medium hover:scale-[1.02] active:scale-[0.98] transition-all duration-300">{editingId ? 'Update Entry' : 'Save Entry'}</button>
+                <input 
+                  type="text" 
+                  value={title} 
+                  onChange={e => setTitle(e.target.value)} 
+                  placeholder="Reflection Title" 
+                  className="w-full bg-transparent border-none text-white text-2xl mb-4 focus:outline-none placeholder:text-white/20" 
+                  style={{ fontFamily: "'Instrument Serif', serif" }} 
+                />
+                <textarea 
+                  value={content} 
+                  onChange={e => setContent(e.target.value)} 
+                  placeholder="What's on your mind?" 
+                  rows={6} 
+                  className="w-full bg-transparent border-none text-white text-lg focus:outline-none placeholder:text-white/20 resize-none leading-relaxed" 
+                />
+                <div className="flex items-center justify-between mt-6 pt-6 border-t border-white/5">
+                  <label className="flex items-center gap-3 cursor-pointer group">
+                    <input type="checkbox" checked={isPublic} onChange={e => setIsPublic(e.target.checked)} className="hidden" />
+                    <div className={`w-10 h-5 rounded-full transition-all relative ${isPublic ? 'bg-teal-500' : 'bg-white/10'}`}>
+                      <div className={`absolute top-1 w-3 h-3 rounded-full bg-white transition-all ${isPublic ? 'left-6' : 'left-1'}`} />
+                    </div>
+                    <span className="text-xs text-white/40 group-hover:text-white/60">Public Post</span>
+                  </label>
+                  <div className="flex gap-4">
+                    <button onClick={resetForm} className="text-sm text-white/40 hover:text-white">Discard</button>
+                    <button onClick={handleSave} className="liquid-glass px-6 py-2 rounded-full text-sm text-white font-medium">Post</button>
                   </div>
                 </div>
               </div>
@@ -200,68 +246,98 @@ export default function Journal() {
           </div>
         )}
 
+        {/* Selected Entry View */}
         {selectedEntry && !isWriting && (
-          <div className="animate-fade-rise mb-16">
-            <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-black/20 backdrop-blur-2xl shadow-2xl shadow-black/50">
-              <div className="absolute -top-[100px] -right-[100px] w-[300px] h-[300px] bg-blue-500/20 rounded-full blur-[100px] pointer-events-none" />
-              <div className="relative p-8 md:p-12">
-                <div className="flex items-center justify-between mb-8">
-                  <div>
-                    <button onClick={() => setSelectedEntry(null)} className="text-white/40 hover:text-white transition-colors text-sm mb-4 flex items-center gap-2">
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
-                      Back to all entries
-                    </button>
-                    <h2 className="text-3xl text-white" style={{ fontFamily: "'Instrument Serif', serif" }}>{selectedEntry.title}</h2>
-                    <p className="text-white/40 text-sm mt-2">{fmt(selectedEntry.createdAt)} at {fmtTime(selectedEntry.createdAt)}</p>
-                  </div>
-                  <div className="flex gap-3">
-                    <button onClick={() => handleEdit(selectedEntry)} className="p-3 rounded-full bg-white/5 border border-white/10 text-white/60 hover:bg-white/10 hover:text-white transition-all duration-300">
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
-                    </button>
-                    <button onClick={() => handleDelete(selectedEntry._id)} className="p-3 rounded-full bg-white/5 border border-white/10 text-white/60 hover:bg-red-500/20 hover:text-red-400 hover:border-red-500/30 transition-all duration-300">
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
-                    </button>
-                  </div>
-                </div>
-                <p className="text-white/80 text-lg leading-relaxed whitespace-pre-wrap">{selectedEntry.content || <span className="text-white/30 italic">No content written...</span>}</p>
+          <div className="animate-fade-rise mb-12">
+            <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-black/20 backdrop-blur-2xl p-8">
+              <button onClick={() => setSelectedEntry(null)} className="text-white/40 hover:text-white text-sm mb-6 flex items-center gap-2">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="m15 18-6-6 6-6"/></svg>
+                Back to feed
+              </button>
+              <h2 className="text-4xl text-white mb-4" style={{ fontFamily: "'Instrument Serif', serif" }}>{selectedEntry.title}</h2>
+              <div className="flex items-center gap-3 mb-8">
+                <span className="px-2 py-0.5 rounded-md bg-teal-500/10 border border-teal-500/20 text-[10px] text-teal-400 uppercase tracking-widest">{selectedEntry.mood}</span>
+                <span className="text-white/30 text-xs">{fmt(selectedEntry.createdAt)}</span>
               </div>
+              <p className="text-white/80 text-xl leading-relaxed whitespace-pre-wrap font-light">{selectedEntry.content}</p>
+              {user && selectedEntry.userId?._id === user.id && (
+                <div className="flex gap-4 mt-12 pt-8 border-t border-white/5">
+                  <button onClick={() => handleEdit(selectedEntry)} className="text-xs text-white/40 hover:text-white">Edit Reflection</button>
+                  <button onClick={() => handleDelete(selectedEntry._id)} className="text-xs text-red-400/60 hover:text-red-400">Delete Permanently</button>
+                </div>
+              )}
             </div>
           </div>
         )}
 
+        {/* Feed View */}
         {!selectedEntry && (
-          <div>
+          <div className="flex flex-col gap-px bg-white/5 border-x border-white/5">
             {loading ? (
-              <div className="text-center py-24 text-white/40">Loading entries...</div>
-            ) : entries.length === 0 ? (
-              <div className="text-center py-24 animate-fade-rise">
-                <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-white/5 border border-white/10 mb-6">
-                  <svg className="text-white/30" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>
-                </div>
-                <h3 className="text-2xl text-white/60 mb-3" style={{ fontFamily: "'Instrument Serif', serif" }}>No entries yet</h3>
-                <p className="text-white/40 mb-8">Start your journey by writing your first journal entry.</p>
-                <button onClick={handleNew} className="liquid-glass rounded-full px-8 py-3 text-white hover:scale-105 transition-transform">Write First Entry</button>
+              <div className="text-center py-24">
+                <div className="w-6 h-6 border-2 border-teal-500/20 border-t-teal-500 rounded-full animate-spin mx-auto mb-4" />
+                <span className="text-white/20 text-sm">Synchronizing feed...</span>
+              </div>
+            ) : (activeTab === 'my' ? entries : publicEntries).length === 0 ? (
+              <div className="text-center py-32 bg-[hsl(201,100%,10%)]">
+                <h3 className="text-2xl text-white/40" style={{ fontFamily: "'Instrument Serif', serif" }}>
+                  {activeTab === 'my' ? 'Silence in your space' : 'The community is quiet'}
+                </h3>
+                <p className="text-white/20 text-sm mt-2">Be the one to break it.</p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {entries.map((entry, index) => (
-                  <div key={entry._id} onClick={() => !isWriting && setSelectedEntry(entry)} className="group relative overflow-hidden rounded-2xl border border-white/10 bg-white/5 backdrop-blur-sm p-6 cursor-pointer hover:bg-white/10 hover:border-white/20 transition-all duration-500 hover:-translate-y-1" style={{ animationDelay: `${index * 100}ms` }}>
-                    <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-teal-500/0 via-teal-500/50 to-teal-500/0 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-                    <div className="flex items-start justify-between mb-4">
-                      <div className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center group-hover:border-teal-500/30 transition-colors duration-300">
-                        <svg className="text-white/40 group-hover:text-teal-400 transition-colors duration-300" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>
+              (activeTab === 'my' ? entries : publicEntries).map((entry, index) => (
+                <div 
+                  key={entry._id} 
+                  onClick={() => !isWriting && setSelectedEntry(entry)} 
+                  className="group bg-[hsl(201,100%,11%)] hover:bg-[hsl(201,100%,13%)] border-b border-white/5 p-6 cursor-pointer transition-all duration-300"
+                >
+                  <div className="flex gap-4">
+                    {/* Twitter-style Avatar */}
+                    <div className="flex-shrink-0">
+                      <div className="w-12 h-12 rounded-full bg-gradient-to-br from-teal-500/20 to-blue-500/20 border border-white/10 flex items-center justify-center text-lg shadow-inner">
+                        {entry.userId?.name?.charAt(0) || 'V'}
                       </div>
-                      <span className="text-white/30 text-xs">{new Date(entry.createdAt).toLocaleDateString()}</span>
                     </div>
-                    <h3 className="text-lg text-white font-medium mb-2 group-hover:text-teal-200 transition-colors duration-300" style={{ fontFamily: "'Instrument Serif', serif" }}>{entry.title}</h3>
-                    <p className="text-white/40 text-sm line-clamp-3 leading-relaxed">{entry.content || <span className="italic">No content...</span>}</p>
-                    <div className="mt-4 pt-4 border-t border-white/5 flex items-center justify-between">
-                      <span className="text-white/30 text-xs">{fmtTime(entry.createdAt)}</span>
-                      <svg className="text-white/20 group-hover:text-white/60 group-hover:translate-x-1 transition-all duration-300" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+
+                    {/* Content */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5 mb-1 flex-wrap">
+                        <span className="font-bold text-white truncate">{entry.userId?.name || 'Explorer'}</span>
+                        <span className="text-white/40 text-sm truncate">@{entry.userId?.name?.toLowerCase().replace(/\s/g, '') || 'velorah_user'}</span>
+                        <span className="text-white/20">·</span>
+                        <span className="text-white/40 text-sm">{fmtRelative(entry.createdAt)}</span>
+                        {entry.mood && (
+                           <span className="ml-auto text-[10px] px-2 py-0.5 rounded bg-white/5 border border-white/5 text-white/30 uppercase tracking-tighter">{entry.mood}</span>
+                        )}
+                      </div>
+
+                      <h3 className="text-lg text-white font-medium mb-1 line-clamp-1" style={{ fontFamily: "'Instrument Serif', serif" }}>{entry.title}</h3>
+                      <p className="text-white/60 leading-relaxed text-[15px] line-clamp-4 font-light">{entry.content}</p>
+
+                      <div className="flex items-center gap-10 mt-4 text-white/20">
+                        <div className="flex items-center gap-2 group/icon">
+                          <div className="p-2 rounded-full group-hover/icon:bg-teal-500/10 group-hover/icon:text-teal-400 transition-all">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                          </div>
+                          <span className="text-xs group-hover/icon:text-teal-400">2</span>
+                        </div>
+                        <div className="flex items-center gap-2 group/icon">
+                          <div className="p-2 rounded-full group-hover/icon:bg-red-500/10 group-hover/icon:text-red-400 transition-all">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+                          </div>
+                          <span className="text-xs group-hover/icon:text-red-400">12</span>
+                        </div>
+                        <div className="flex items-center gap-2 group/icon ml-auto">
+                           <div className="p-2 rounded-full group-hover/icon:bg-white/10 transition-all">
+                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
+                           </div>
+                        </div>
+                      </div>
                     </div>
                   </div>
-                ))}
-              </div>
+                </div>
+              ))
             )}
           </div>
         )}

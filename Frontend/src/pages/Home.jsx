@@ -19,63 +19,41 @@ export default function Home() {
         />
       </video>
 
-      <nav className="relative z-10 flex flex-row justify-between items-center px-8 py-6 max-w-7xl mx-auto">
-        <div className="text-3xl tracking-tight text-white" style={{ fontFamily: "'Instrument Serif', serif" }}>
-          Velorah<sup className="text-xs">®</sup>
-        </div>
-
-        <div className="hidden md:flex items-center gap-8">
-          <Link to="/" className="text-sm text-white transition-colors">Home</Link>
-          <Link to="/about" className="text-sm text-white/60 hover:text-white transition-colors">Studio</Link>
-          <Link to="/about" className="text-sm text-white/60 hover:text-white transition-colors">About</Link>
-          <Link to="/journal" className="text-sm text-white/60 hover:text-white transition-colors">Journal</Link>
-          <Link to="/about" className="text-sm text-white/60 hover:text-white transition-colors">Reach Us</Link>
-        </div>
-
-        {user ? (
-          <Link
-            to="/dashboard"
-            className="liquid-glass rounded-full px-6 py-2.5 text-sm text-white cursor-pointer hover:scale-105 transition-transform inline-block text-center no-underline"
-          >
-            Go to Dashboard
-          </Link>
-        ) : (
-          <Link 
-            to="/login"
-            className="liquid-glass rounded-full px-6 py-2.5 text-sm text-white cursor-pointer hover:scale-105 transition-transform inline-block text-center no-underline"
-          >
-            Begin Journey
-          </Link>
-        )}
-      </nav>
 
       <section className="relative z-10 flex flex-col items-center justify-center text-center px-6 py-[90px] pt-32 pb-40">
-        <h1
-          className="animate-fade-rise text-5xl sm:text-7xl md:text-8xl font-normal max-w-7xl leading-[0.95] tracking-[-2.46px]"
-          style={{ fontFamily: "'Instrument Serif', serif" }}
-        >
-          Where <em className="not-italic text-white/40">dreams</em> rise <em className="not-italic text-white/40">through the silence.</em>
-        </h1>
+        <div className="animate-fade-rise flex flex-col items-center">
+          <span className="text-teal-400 text-xs font-bold uppercase tracking-[0.3em] mb-6 block">Your Personal Growth Sanctuary</span>
+          <h1
+            className="text-6xl sm:text-8xl md:text-9xl font-normal max-w-7xl leading-[0.9] tracking-[-0.04em]"
+            style={{ fontFamily: "'Instrument Serif', serif" }}
+          >
+            Velora. <em className="not-italic text-white/30">Where clarity meets ambition.</em>
+          </h1>
+        </div>
 
-        <p className="animate-fade-rise-delay text-white/50 text-base sm:text-lg max-w-2xl mt-8 leading-relaxed">
-          We're designing tools for deep thinkers, bold creators, and quiet rebels. Amid the chaos, we build digital spaces for sharp focus and inspired work.
+        <p className="animate-fade-rise-delay text-white/50 text-lg sm:text-xl max-w-2xl mt-10 leading-relaxed font-light">
+          Document your reflections, conquer your habits, and witness your journey rise through the silence. A sanctuary for deep thinkers and bold creators.
         </p>
 
-        {user ? (
-          <Link
-            to="/dashboard"
-            className="animate-fade-rise-delay-2 liquid-glass rounded-full px-14 py-5 text-base text-white mt-12 cursor-pointer inline-block text-center no-underline hover:scale-105 transition-transform"
-          >
-            Go to Dashboard
-          </Link>
-        ) : (
-          <Link 
-            to="/login"
-            className="animate-fade-rise-delay-2 liquid-glass rounded-full px-14 py-5 text-base text-white mt-12 cursor-pointer inline-block text-center no-underline hover:scale-105 transition-transform"
-          >
-            Begin Journey
-          </Link>
-        )}
+        <div className="animate-fade-rise-delay-2 flex flex-col sm:flex-row items-center gap-6 mt-14">
+          {user ? (
+            <Link
+              to="/dashboard"
+              className="liquid-glass rounded-full px-16 py-5 text-base text-white cursor-pointer transition-all hover:scale-105 active:scale-95 shadow-[0_20px_50px_rgba(20,184,166,0.2)]"
+            >
+              Enter Dashboard
+            </Link>
+          ) : (
+            <>
+              <Link 
+                to="/register"
+                className="liquid-glass rounded-full px-16 py-5 text-base text-white cursor-pointer transition-all hover:scale-105 active:scale-95 shadow-[0_20px_50px_rgba(20,184,166,0.2)]"
+              >
+                Begin Your Journey
+              </Link>
+            </>
+          )}
+        </div>
       </section>
     </div>
   )

@@ -3,182 +3,156 @@ import '../index.css'
 
 export default function About() {
   const team = [
-    { name: 'Agraj K', role: 'Lead Developer', roll: 'AM.SC.U4AIE23105', avatar: 'AK' },
-    { name: 'Jaydeep Dileep', role: 'Backend Engineer', roll: 'AM.SC.U4AIE23114', avatar: 'JD' },
-    { name: 'Keziah Suzaine', role: 'UI/UX Designer', roll: 'AM.SC.U4AIE23122', avatar: 'KS' },
+    { name: 'Agraj K', role: 'Lead Architect', roll: 'AM.SC.U4AIE23105', avatar: 'AK' },
+    { name: 'Jaydeep Dileep', role: 'Core Engineer', roll: 'AM.SC.U4AIE23114', avatar: 'JD' },
+    { name: 'Keziah Suzaine', role: 'Design Director', roll: 'AM.SC.U4AIE23122', avatar: 'KS' },
   ]
 
-  const features = [
+  const pillars = [
     { 
-      title: 'Life Events', 
-      description: 'Record and organize significant moments in your life journey. Tag locations, add images, and track progress.',
+      title: 'Intentional Awareness', 
+      desc: 'Most digital tools demand your attention. Velora gives it back. We provide a space to map your life events and goals without the clutter of traditional social media.',
       icon: 'M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5'
     },
     { 
-      title: 'Goal Tracking', 
-      description: 'Set meaningful goals with milestones. Break down big dreams into achievable steps and watch your progress grow.',
-      icon: 'M12 20V10M18 20V4M6 20v-6'
-    },
-    { 
-      title: 'Habit Builder', 
-      description: 'Build consistency with daily habit tracking. Visual calendars show your streaks and motivate you to keep going.',
+      title: 'The Art of Consistency', 
+      desc: 'Growth isn’t an event; it’s a habit. Our tracking systems are designed to be friction-less, turning daily discipline into a visual masterpiece of your progress.',
       icon: 'M13 2L3 14h9l-1 8 10-12h-9l1-8z'
     },
     { 
-      title: 'Journal', 
-      description: 'A private space for reflections, thoughts, and daily musings. Everything stays here, safe and personal.',
+      title: 'Quiet Reflection', 
+      desc: 'Through our Twitter-style public feeds and private journals, we bridge the gap between community inspiration and personal introspection.',
       icon: 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z'
-    },
-    { 
-      title: 'Analytics', 
-      description: 'Beautiful dashboards visualize your growth. See patterns, celebrate milestones, and stay motivated.',
-      icon: 'M3 3v18h18 M18.7 8l-5.1 5.2-2.8-2.7L7 14.3'
-    },
-    { 
-      title: 'Secure & Private', 
-      description: 'Your data is encrypted and protected. JWT authentication ensures only you can access your personal growth data.',
-      icon: 'M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z'
-    },
+    }
   ]
 
   return (
     <div className="relative min-h-screen w-full overflow-hidden" style={{ backgroundColor: 'hsl(201, 100%, 13%)' }}>
       
-      {/* Background */}
+      {/* Background with deepened atmosphere */}
       <div className="absolute inset-0 z-0 overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-b from-[hsl(201,100%,10%)] to-[hsl(201,100%,16%)] opacity-80" />
-        <div className="absolute top-[-10%] left-[-10%] w-[60vw] h-[60vw] rounded-full bg-teal-900/30 blur-[120px] animate-drift-1" />
-        <div className="absolute bottom-[-10%] right-[-10%] w-[50vw] h-[50vw] rounded-full bg-blue-900/30 blur-[100px] animate-drift-2" />
-        <div className="absolute top-[40%] left-[40%] w-[40vw] h-[40vw] rounded-full bg-cyan-900/20 blur-[90px] animate-drift-3" />
-        <div className="absolute inset-0 opacity-[0.03] pointer-events-none" style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")` }} />
+        <div className="absolute inset-0 bg-gradient-to-b from-[hsl(201,100%,10%)] to-[hsl(201,100%,18%)] opacity-95" />
+        <div className="absolute top-[-20%] left-[-10%] w-[80vw] h-[80vw] rounded-full bg-teal-900/20 blur-[140px] animate-pulse" />
+        <div className="absolute bottom-[-10%] right-[-10%] w-[60vw] h-[60vw] rounded-full bg-blue-900/20 blur-[120px] animate-pulse" />
       </div>
 
-      {/* Main Content */}
-      <main className="relative z-10 max-w-7xl mx-auto px-8 pt-24 pb-12">
+      <main className="relative z-10 max-w-6xl mx-auto px-8 pt-32 pb-24">
         
-        {/* Hero */}
-        <div className="text-center mb-20 animate-fade-rise">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-tr from-teal-500/20 to-blue-500/20 border border-white/10 mb-8">
-            <svg className="text-teal-200" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/>
-            </svg>
-          </div>
-          
-          <h1 className="text-5xl md:text-7xl text-white tracking-tight mb-6" style={{ fontFamily: "'Instrument Serif', serif" }}>
-            About <em className="not-italic text-white/40">Velorah</em>
+        {/* Section 1: The Manifesto */}
+        <section className="text-center mb-32 animate-fade-rise">
+          <span className="text-teal-400 text-xs font-bold uppercase tracking-[0.4em] mb-8 block">The Philosophy</span>
+          <h1 className="text-6xl md:text-8xl text-white tracking-tight mb-10 leading-[0.9]" style={{ fontFamily: "'Instrument Serif', serif" }}>
+            Reclaiming the <em className="not-italic text-white/30 text-7xl md:text-9xl">Inner Arc.</em>
           </h1>
-          
-          <p className="text-white/50 text-lg max-w-2xl mx-auto leading-relaxed mb-8">
-            LifeArc is a structured personal growth management system built to help you record, organize, and analyze your life journey. Built with the MERN stack as part of our Full Stack Development course at Amrita Vishwa Vidyapeetham.
+          <p className="text-white/60 text-xl md:text-2xl max-w-3xl mx-auto leading-relaxed font-light italic">
+            "In an age of constant noise, Velora was built as a sanctuary—a digital space designed not for distraction, but for the deliberate documentation of one's existence."
           </p>
+        </section>
 
-          <div className="flex items-center justify-center gap-4 text-white/30 text-sm">
-            <span className="flex items-center gap-2">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-              </svg>
-              Secure & Private
-            </span>
-            <span>·</span>
-            <span className="flex items-center gap-2">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
-              </svg>
-              MERN Stack
-            </span>
-            <span>·</span>
-            <span className="flex items-center gap-2">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <rect width="18" height="18" x="3" y="4" rx="2" ry="2"/>
-                <line x1="16" x2="16" y1="2" y2="6"/>
-                <line x1="8" x2="8" y1="2" y2="6"/>
-                <line x1="3" x2="21" y1="10" y2="10"/>
-              </svg>
-              2026
-            </span>
-          </div>
-        </div>
-
-        {/* Features Grid */}
-        <div className="mb-20">
-          <h2 className="text-3xl text-white text-center mb-12" style={{ fontFamily: "'Instrument Serif', serif" }}>
-            What You Can <em className="not-italic text-white/40">Do</em>
-          </h2>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {features.map((feature, i) => (
-              <div key={i} className="group relative overflow-hidden rounded-2xl border border-white/10 bg-white/5 backdrop-blur-sm p-8 hover:bg-white/10 hover:border-white/20 transition-all duration-500 hover:-translate-y-1">
-                <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-teal-500/0 via-teal-500/50 to-teal-500/0 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-                
-                <div className="w-12 h-12 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center mb-6 group-hover:border-teal-500/30 transition-colors duration-300">
-                  <svg className="text-teal-400" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d={feature.icon} />
-                  </svg>
-                </div>
-                
-                <h3 className="text-xl text-white mb-3 group-hover:text-teal-200 transition-colors" style={{ fontFamily: "'Instrument Serif', serif" }}>
-                  {feature.title}
-                </h3>
-                <p className="text-white/40 text-sm leading-relaxed">
-                  {feature.description}
-                </p>
+        {/* Section 2: The Origin */}
+        <section className="grid grid-cols-1 lg:grid-cols-2 gap-20 items-center mb-40">
+          <div className="space-y-8 animate-fade-rise">
+            <h2 className="text-4xl text-white" style={{ fontFamily: "'Instrument Serif', serif" }}>
+              Born in the <em className="text-white/40 not-italic">Halls of Amrita.</em>
+            </h2>
+            <div className="space-y-6 text-white/50 leading-relaxed text-lg font-light">
+              <p>
+                Velora started as a vision within the Full Stack Development course at Amrita Vishwa Vidyapeetham. We didn't want to build just another CRUD application; we wanted to build a legacy tool.
+              </p>
+              <p>
+                Our team set out to combine the high-performance capabilities of the MERN stack with a design language that speaks to the soul—one that feels as quiet as a library and as sharp as a diamond.
+              </p>
+            </div>
+            <div className="pt-4">
+              <div className="inline-flex items-center gap-4 px-6 py-3 rounded-full bg-white/5 border border-white/10 text-white/40 text-sm">
+                <span className="w-2 h-2 rounded-full bg-teal-500 animate-ping" />
+                Version 2.0 Deployment Active
               </div>
-            ))}
+            </div>
           </div>
-        </div>
-
-        {/* Team Section */}
-        <div className="mb-20">
-          <h2 className="text-3xl text-white text-center mb-12" style={{ fontFamily: "'Instrument Serif', serif" }}>
-            The <em className="not-italic text-white/40">Team</em>
-          </h2>
           
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl mx-auto">
+          <div className="relative animate-fade-rise">
+            <div className="aspect-square rounded-3xl border border-white/10 bg-gradient-to-br from-teal-500/10 to-blue-500/10 backdrop-blur-2xl p-1">
+              <div className="h-full w-full rounded-[22px] overflow-hidden bg-black/40 flex items-center justify-center p-12 text-center">
+                <div>
+                   <svg className="text-teal-400/20 mx-auto mb-8" width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1">
+                     <path d="M12 3v19M5 8h14M5 16h14"/>
+                   </svg>
+                   <p className="text-white/30 text-sm tracking-[0.2em] uppercase font-bold">The Blueprint of Focus</p>
+                </div>
+              </div>
+            </div>
+            {/* Decorative Orbs */}
+            <div className="absolute -top-6 -right-6 w-32 h-32 bg-teal-500/10 blur-3xl rounded-full" />
+            <div className="absolute -bottom-10 -left-10 w-40 h-40 bg-blue-500/10 blur-3xl rounded-full" />
+          </div>
+        </section>
+
+        {/* Section 3: The Pillars */}
+        <section className="mb-40">
+           <div className="text-center mb-16">
+             <h2 className="text-4xl text-white mb-4" style={{ fontFamily: "'Instrument Serif', serif" }}>Our Founding <em className="text-white/40 not-italic">Pillars</em></h2>
+             <p className="text-white/40 text-sm tracking-widest uppercase">The values that guide every line of code.</p>
+           </div>
+           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+              {pillars.map((p, i) => (
+                <div key={i} className="group p-10 rounded-3xl border border-white/5 bg-white/[0.02] hover:bg-white/[0.05] transition-all duration-500">
+                  <div className="w-12 h-12 rounded-2xl bg-teal-500/10 flex items-center justify-center mb-8 border border-teal-500/20 group-hover:scale-110 transition-transform">
+                    <svg className="text-teal-400" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d={p.icon} />
+                    </svg>
+                  </div>
+                  <h3 className="text-2xl text-white mb-4" style={{ fontFamily: "'Instrument Serif', serif" }}>{p.title}</h3>
+                  <p className="text-white/40 leading-relaxed font-light">{p.desc}</p>
+                </div>
+              ))}
+           </div>
+        </section>
+
+        {/* Section 4: The Architects */}
+        <section className="mb-40">
+          <div className="flex flex-col md:flex-row justify-between items-end gap-8 mb-16 px-4">
+            <div>
+              <h2 className="text-5xl text-white" style={{ fontFamily: "'Instrument Serif', serif" }}>The <em className="text-white/40 not-italic">Architects.</em></h2>
+              <p className="text-white/40 mt-4 max-w-md">Meet the humans behind the sanctuary—a dedicated trio of engineers and designers committed to mindful technology.</p>
+            </div>
+            <div className="hidden md:block h-px flex-1 bg-white/5 mx-12 mb-4" />
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {team.map((member, i) => (
-              <div key={i} className="group relative overflow-hidden rounded-2xl border border-white/10 bg-white/5 backdrop-blur-sm p-8 text-center hover:bg-white/10 hover:border-white/20 transition-all duration-500">
-                <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-teal-500/0 via-teal-500/50 to-teal-500/0 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-                
-                <div className="w-20 h-20 rounded-3xl bg-gradient-to-tr from-teal-500/30 to-blue-500/30 border border-white/20 flex items-center justify-center mx-auto mb-6">
-                  <span className="text-2xl text-white font-semibold">{member.avatar}</span>
+              <div key={i} className="group relative overflow-hidden rounded-[2.5rem] border border-white/10 bg-white/5 backdrop-blur-md p-10 transition-all duration-700 hover:bg-white/10">
+                <div className="w-24 h-24 rounded-[2rem] bg-gradient-to-tr from-teal-500 to-blue-600 p-[1px] mb-8 group-hover:rotate-6 transition-transform duration-500">
+                  <div className="h-full w-full rounded-[1.9rem] bg-[hsl(201,100%,10%)] flex items-center justify-center">
+                    <span className="text-3xl text-white font-serif">{member.avatar}</span>
+                  </div>
                 </div>
-                
-                <h3 className="text-xl text-white mb-1" style={{ fontFamily: "'Instrument Serif', serif" }}>
-                  {member.name}
-                </h3>
-                <p className="text-teal-400 text-sm mb-2">{member.role}</p>
-                <p className="text-white/30 text-xs">{member.roll}</p>
+                <h3 className="text-2xl text-white font-medium" style={{ fontFamily: "'Instrument Serif', serif" }}>{member.name}</h3>
+                <p className="text-teal-400 text-sm mt-1 mb-4">{member.role}</p>
+                <div className="h-px w-12 bg-white/10 mb-4 group-hover:w-full transition-all duration-700" />
+                <p className="text-white/30 text-xs tracking-widest">{member.roll}</p>
               </div>
             ))}
           </div>
-        </div>
+        </section>
 
-        {/* Tech Stack */}
-        <div className="mb-20">
-          <h2 className="text-3xl text-white text-center mb-12" style={{ fontFamily: "'Instrument Serif', serif" }}>
-            Built <em className="not-italic text-white/40">With</em>
-          </h2>
-          
-          <div className="flex flex-wrap items-center justify-center gap-4">
-            {['MongoDB', 'Express.js', 'React', 'Node.js', 'Tailwind CSS', 'JWT Auth'].map((tech, i) => (
-              <div key={i} className="px-6 py-3 rounded-xl border border-white/10 bg-white/5 text-white/60 text-sm hover:bg-white/10 hover:text-white hover:border-white/20 transition-all duration-300">
-                {tech}
-              </div>
-            ))}
+
+
+        {/* Final CTA */}
+        <section className="text-center">
+          <div className="relative inline-block">
+             <div className="absolute inset-0 bg-teal-500/20 blur-[100px] rounded-full" />
+             <div className="relative">
+                <h2 className="text-5xl text-white mb-10" style={{ fontFamily: "'Instrument Serif', serif" }}>Begin Your <em className="text-white/40 not-italic">Own Arc.</em></h2>
+                <Link 
+                  to="/register"
+                  className="liquid-glass inline-block rounded-full px-16 py-6 text-lg text-white cursor-pointer hover:scale-105 transition-all no-underline shadow-2xl"
+                >
+                  Join the Sanctuary
+                </Link>
+             </div>
           </div>
-        </div>
-
-        {/* CTA */}
-        <div className="text-center">
-          <h2 className="text-3xl text-white mb-6" style={{ fontFamily: "'Instrument Serif', serif" }}>
-            Ready to Start Your Journey?
-          </h2>
-          <Link 
-            to="/login"
-            className="liquid-glass inline-block rounded-full px-12 py-5 text-base text-white cursor-pointer hover:scale-105 transition-transform no-underline"
-          >
-            Get Started
-          </Link>
-        </div>
+        </section>
       </main>
     </div>
   )

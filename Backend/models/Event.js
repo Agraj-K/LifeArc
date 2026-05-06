@@ -9,6 +9,7 @@ const eventSchema = new mongoose.Schema({
   targetDate:  { type: Date },
   progress:    { type: Number, min: 0, max: 100, default: 0 },
   location:    { type: String, default: '' },
+  images:      [{ type: String }], // Array of Cloudinary URLs
 }, { timestamps: true });
 
 module.exports = mongoose.model('Event', eventSchema);

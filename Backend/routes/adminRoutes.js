@@ -5,6 +5,10 @@ const Event = require('../models/Event');
 const Goal = require('../models/Goal');
 const Journal = require('../models/Journal');
 const Habit = require('../models/Habit');
+const { protect } = require('../middleware/authMiddleware');
+const { adminOnly } = require('../middleware/adminMiddleware');
+
+router.use(protect, adminOnly);
 
 // @route   GET /api/admin/stats
 // @desc    Get platform-wide statistics

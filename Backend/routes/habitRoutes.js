@@ -1,6 +1,14 @@
 const express = require('express');
 const router = express.Router();
 const Habit = require('../models/Habit');
+const HabitLog = require('../models/HabitLog');
+const multer = require('multer');
+const { storage } = require('../utils/cloudinary');
+const { protect } = require('../middleware/authMiddleware');
+
+const upload = multer({ storage });
+
+router.use(protect);
 
 // Helper: calculate streak from completed days array
 const calcStreak = (completed) => {
@@ -18,8 +26,23 @@ const calcStreak = (completed) => {
 // @access  Private
 router.get('/', async (req, res) => {
   try {
-    const habits = await Habit.find({ userId: req.user._id }).sort({ createdAt: -1 });
+    const habits = await Habit.find({ userId: req.user._id })
+      .populate('goalId', 'title')
+      .sort({ createdAt: -1 });
     res.json(habits);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// @route   GET /api/habits/:id/logs
+// @desc    Get all logs for a habit (for heatmap)
+// @access  Private
+router.get('/:id/logs', async (req, res) => {
+  try {
+    const logs = await HabitLog.find({ habitId: req.params.id, userId: req.user._id })
+      .sort({ date: 1 });
+    res.json(logs);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -30,7 +53,7 @@ router.get('/', async (req, res) => {
 // @access  Private
 router.post('/', async (req, res) => {
   try {
-    const { title, category, color } = req.body;
+    const { title, category, color, goalId } = req.body;
 
     if (!title) {
       return res.status(400).json({ message: 'Habit title is required' });
@@ -38,6 +61,7 @@ router.post('/', async (req, res) => {
 
     const habit = await Habit.create({
       userId: req.user._id,
+      goalId: goalId || null,
       title,
       category: category || 'Health',
       color: color || 'teal',
@@ -46,6 +70,40 @@ router.post('/', async (req, res) => {
     });
 
     res.status(201).json(habit);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// @route   POST /api/habits/:id/log
+// @desc    Log a daily check-in with an optional photo
+// @access  Private
+router.post('/:id/log', upload.single('photo'), async (req, res) => {
+  try {
+    const { date, note } = req.body;
+    const normalizedDate = new Date(date || Date.now());
+    normalizedDate.setHours(0, 0, 0, 0);
+
+    const log = await HabitLog.findOneAndUpdate(
+      { habitId: req.params.id, date: normalizedDate, userId: req.user._id },
+      { 
+        photo: req.file ? req.file.path : undefined,
+        note: note || ''
+      },
+      { upsert: true, new: true }
+    );
+
+    // Also update the Habit's 'completed' array for backward compatibility with the month view
+    const dayOfMonth = normalizedDate.getDate();
+    const habit = await Habit.findById(req.params.id);
+    if (habit && !habit.completed.includes(dayOfMonth)) {
+      habit.completed.push(dayOfMonth);
+      habit.completed.sort((a, b) => a - b);
+      habit.streak = calcStreak(habit.completed);
+      await habit.save();
+    }
+
+    res.status(201).json(log);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -72,9 +130,19 @@ router.patch('/:id/toggle', async (req, res) => {
     if (isCompleted) {
       // Remove the day
       habit.completed = habit.completed.filter(d => d !== day);
+      // Also delete the log for that day if it exists (simplified: uses current month/year)
+      const targetDate = new Date();
+      targetDate.setDate(day);
+      targetDate.setHours(0,0,0,0);
+      await HabitLog.findOneAndDelete({ habitId: habit._id, date: targetDate });
     } else {
       // Add the day and sort
       habit.completed = [...habit.completed, day].sort((a, b) => a - b);
+      // Create a basic log
+      const targetDate = new Date();
+      targetDate.setDate(day);
+      targetDate.setHours(0,0,0,0);
+      await HabitLog.create({ habitId: habit._id, userId: req.user._id, date: targetDate });
     }
 
     // Recalculate streak

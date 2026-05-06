@@ -5,6 +5,9 @@ const Journal = require('../models/Journal');
 const Goal = require('../models/Goal');
 const Habit = require('../models/Habit');
 const Event = require('../models/Event');
+const { protect } = require('../middleware/authMiddleware');
+
+router.use(protect);
 
 // @route   GET /api/profile
 // @desc    Get logged-in user's profile + activity counts

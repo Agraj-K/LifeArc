@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 
 const habitSchema = new mongoose.Schema({
   userId:    { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  goalId:    { type: mongoose.Schema.Types.ObjectId, ref: 'Goal' }, // Linked Goal
   title:     { type: String, required: true, trim: true },
   category:  { type: String, enum: ['Health', 'Learning', 'Mindfulness', 'Career', 'Finance', 'Other'], default: 'Health' },
   color:     { type: String, default: 'teal' },

@@ -1,0 +1,9 @@
+2026-05-06T19:02:22.480Z - GLOBAL ERROR: Invalid Signature c07ae0973a8871101d9ee9494014931294085b05. String to sign - 'allowed_formats=jpg,png,jpeg,webp&folder=lifearc_uploads&timestamp=1778094135'.
+undefined
+
+2026-05-06T19:02:23.518Z - GLOBAL ERROR: Invalid Signature ee144a5bd06a0d6755f9bed3fc935227fd636f63. String to sign - 'allowed_formats=jpg,png,jpeg,webp&folder=lifearc_uploads&timestamp=1778094138'.
+undefined
+
+2026-05-06T19:04:43.506Z - GLOBAL ERROR: Invalid Signature d4e24500d84c5e65010c0fc217c65e768f98d3f7. String to sign - 'allowed_formats=jpg,png,jpeg,webp&folder=lifearc_uploads&timestamp=1778094278'.
+undefined
+
