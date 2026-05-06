@@ -1,4 +1,5 @@
-import { Routes, Route, Link, useLocation } from 'react-router-dom'
+import { Routes, Route, Link, useLocation, Navigate } from 'react-router-dom'
+import { useAuth } from './context/AuthContext'
 import Home from './pages/Home'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
@@ -11,8 +12,25 @@ import Profile from './pages/Profile'
 import About from './pages/About'
 import './index.css'
 
+// Redirects to /login if user is not authenticated
+function ProtectedRoute({ children }) {
+  const { user, loading } = useAuth()
+  if (loading) return null
+  return user ? children : <Navigate to="/login" replace />
+}
+
+// Admin-only route guard
+function AdminRoute({ children }) {
+  const { user, loading } = useAuth()
+  if (loading) return null
+  if (!user) return <Navigate to="/login" replace />
+  if (user.role !== 'admin') return <Navigate to="/dashboard" replace />
+  return children
+}
+
 function Navigation() {
   const location = useLocation()
+  const { user, logout } = useAuth()
   if (location.pathname === '/') return null
 
   return (
@@ -29,6 +47,9 @@ function Navigation() {
           <Link to="/habits" style={{ color: 'rgba(255,255,255,0.6)', textDecoration: 'none', fontSize: '14px' }}>Habits</Link>
           <Link to="/journal" style={{ color: 'rgba(255,255,255,0.6)', textDecoration: 'none', fontSize: '14px' }}>Journal</Link>
           <Link to="/about" style={{ color: 'rgba(255,255,255,0.6)', textDecoration: 'none', fontSize: '14px' }}>About</Link>
+          {user?.role === 'admin' && (
+            <Link to="/admin" style={{ color: 'rgba(255,255,255,0.6)', textDecoration: 'none', fontSize: '14px' }}>Admin</Link>
+          )}
         </div>
         <div className="flex items-center gap-4">
           <Link to="/profile" style={{ textDecoration: 'none' }}>
@@ -39,9 +60,18 @@ function Navigation() {
               </svg>
             </div>
           </Link>
-          <Link to="/login" className="liquid-glass rounded-full px-5 py-2 text-sm text-white hover:scale-105 transition-transform" style={{ textDecoration: 'none' }}>
-            Sign Out
-          </Link>
+          {user ? (
+            <button
+              onClick={logout}
+              className="liquid-glass rounded-full px-5 py-2 text-sm text-white hover:scale-105 transition-transform"
+            >
+              Sign Out
+            </button>
+          ) : (
+            <Link to="/login" className="liquid-glass rounded-full px-5 py-2 text-sm text-white hover:scale-105 transition-transform" style={{ textDecoration: 'none' }}>
+              Sign In
+            </Link>
+          )}
         </div>
       </div>
     </nav>
@@ -65,14 +95,14 @@ export default function App() {
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/login" element={<Login />} />
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/journal" element={<Journal />} />
-          <Route path="/events" element={<Events />} />
-          <Route path="/goals" element={<Goals />} />
-          <Route path="/habits" element={<Habits />} />
-          <Route path="/admin" element={<Admin />} />
-          <Route path="/profile" element={<Profile />} />
           <Route path="/about" element={<About />} />
+          <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+          <Route path="/journal"   element={<ProtectedRoute><Journal /></ProtectedRoute>} />
+          <Route path="/events"    element={<ProtectedRoute><Events /></ProtectedRoute>} />
+          <Route path="/goals"     element={<ProtectedRoute><Goals /></ProtectedRoute>} />
+          <Route path="/habits"    element={<ProtectedRoute><Habits /></ProtectedRoute>} />
+          <Route path="/profile"   element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+          <Route path="/admin"     element={<AdminRoute><Admin /></AdminRoute>} />
         </Routes>
       </PageWrapper>
     </>

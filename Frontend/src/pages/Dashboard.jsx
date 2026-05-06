@@ -1,28 +1,34 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
+import { toast } from 'sonner'
+import API from '../api'
 import '../index.css'
 
 export default function Dashboard() {
-  const [stats, setStats] = useState({
-    events: 12,
-    goals: 5,
-    habits: 8,
-    journalEntries: 24,
-    streak: 7
-  })
+  const [stats, setStats] = useState({ events: 0, goals: 0, habits: 0, journalEntries: 0, streak: 0 })
+  const [recentEvents, setRecentEvents] = useState([])
+  const [goals, setGoals] = useState([])
+  const [loading, setLoading] = useState(true)
 
-  const [recentEvents, setRecentEvents] = useState([
-    { id: 1, title: 'Started New Job', category: 'Career', date: 'Mar 15, 2026', progress: 100 },
-    { id: 2, title: 'Marathon Training', category: 'Health', date: 'Mar 10, 2026', progress: 65 },
-    { id: 3, title: 'Learn React Native', category: 'Learning', date: 'Mar 5, 2026', progress: 40 },
-    { id: 4, title: 'Meditation Practice', category: 'Health', date: 'Mar 1, 2026', progress: 90 },
-  ])
-
-  const [goals, setGoals] = useState([
-    { id: 1, title: 'Get Promoted', target: 'Dec 2026', progress: 35 },
-    { id: 2, title: 'Run a Marathon', target: 'Nov 2026', progress: 60 },
-    { id: 3, title: 'Build LifeArc', target: 'Jun 2026', progress: 80 },
-  ])
+  useEffect(() => {
+    const fetchDashboard = async () => {
+      try {
+        const [profileRes, eventsRes, goalsRes] = await Promise.all([
+          API.get('/profile'),
+          API.get('/events'),
+          API.get('/goals'),
+        ])
+        setStats(profileRes.data.stats)
+        setRecentEvents(eventsRes.data.slice(0, 4))
+        setGoals(goalsRes.data.slice(0, 3))
+      } catch {
+        toast.error('Failed to load dashboard')
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchDashboard()
+  }, [])
 
   return (
     <div className="relative min-h-screen w-full overflow-hidden" style={{ backgroundColor: 'hsl(201, 100%, 13%)' }}>
@@ -85,17 +91,18 @@ export default function Dashboard() {
               </div>
 
               <div className="space-y-4">
-                {recentEvents.map((event) => (
-                  <div key={event.id} className="group flex items-center gap-4 p-4 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 hover:border-white/20 transition-all duration-300">
+                {recentEvents.length === 0 ? (
+                  <p className="text-white/40 text-sm text-center py-6">No events yet. <Link to="/events" className="text-teal-400 hover:text-teal-300">Create one →</Link></p>
+                ) : recentEvents.map((event) => (
+                  <div key={event._id} className="group flex items-center gap-4 p-4 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 hover:border-white/20 transition-all duration-300">
                     <div className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center group-hover:border-teal-500/30 transition-colors">
                       <svg className="text-white/40 group-hover:text-teal-400 transition-colors" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <circle cx="12" cy="12" r="10"/>
-                        <polyline points="12 6 12 12 16 14"/>
+                        <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
                       </svg>
                     </div>
                     <div className="flex-1">
                       <h3 className="text-white font-medium group-hover:text-teal-200 transition-colors">{event.title}</h3>
-                      <p className="text-white/40 text-xs">{event.category} · {event.date}</p>
+                      <p className="text-white/40 text-xs">{event.category} · {event.startDate ? new Date(event.startDate).toLocaleDateString() : 'No date'}</p>
                     </div>
                     <div className="text-right">
                       <div className="text-white/60 text-sm">{event.progress}%</div>
@@ -124,17 +131,16 @@ export default function Dashboard() {
               </div>
 
               <div className="space-y-6">
-                {goals.map((goal) => (
-                  <div key={goal.id}>
+                {goals.length === 0 ? (
+                  <p className="text-white/40 text-sm text-center py-6">No goals yet. <Link to="/goals" className="text-teal-400 hover:text-teal-300">Create one →</Link></p>
+                ) : goals.map((goal) => (
+                  <div key={goal._id}>
                     <div className="flex items-center justify-between mb-2">
                       <h3 className="text-white font-medium">{goal.title}</h3>
-                      <span className="text-white/40 text-sm">{goal.target}</span>
+                      <span className="text-white/40 text-sm">{goal.targetDate ? new Date(goal.targetDate).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }) : 'No date'}</span>
                     </div>
                     <div className="w-full h-2 bg-white/10 rounded-full overflow-hidden">
-                      <div 
-                        className="h-full bg-gradient-to-r from-teal-500 to-blue-500 rounded-full transition-all duration-1000" 
-                        style={{ width: `${goal.progress}%` }} 
-                      />
+                      <div className="h-full bg-gradient-to-r from-teal-500 to-blue-500 rounded-full transition-all duration-1000" style={{ width: `${goal.progress}%` }} />
                     </div>
                     <div className="text-right text-white/40 text-xs mt-1">{goal.progress}% complete</div>
                   </div>
