@@ -6,6 +6,13 @@ const journalSchema = new mongoose.Schema({
   content: { type: String, default: '' },
   isPublic: { type: Boolean, default: false },
   mood:    { type: String, default: 'Neutral' },
+  images:  [{ type: String }],
+  likes:   [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+  comments: [{
+    userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    text: { type: String, required: true },
+    createdAt: { type: Date, default: Date.now }
+  }]
 }, { timestamps: true }); // createdAt and updatedAt auto-managed
 
 module.exports = mongoose.model('Journal', journalSchema);

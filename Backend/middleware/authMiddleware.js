@@ -24,7 +24,10 @@ const protect = async (req, res, next) => {
       }
 
       if (req.user.status === 'Suspended') {
-        return res.status(403).json({ message: 'Your account has been suspended' });
+        return res.status(403).json({ 
+          message: 'Your account has been suspended', 
+          reason: req.user.suspensionReason || 'No reason provided.' 
+        });
       }
 
       next();

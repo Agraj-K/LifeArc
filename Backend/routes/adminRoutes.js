@@ -52,6 +52,7 @@ router.get('/users', async (req, res) => {
           email: user.email,
           role: user.role,
           status: user.status,
+          suspensionCount: user.suspensionCount || 0,
           createdAt: user.createdAt,
           events,
           goals,
@@ -70,6 +71,7 @@ router.get('/users', async (req, res) => {
 // @access  Private/Admin
 router.patch('/users/:id/suspend', async (req, res) => {
   try {
+    const { reason } = req.body;
     const user = await User.findById(req.params.id);
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
@@ -81,9 +83,16 @@ router.patch('/users/:id/suspend', async (req, res) => {
     }
 
     user.status = user.status === 'Active' ? 'Suspended' : 'Active';
+    if (user.status === 'Suspended') {
+      user.suspensionReason = reason || '';
+      user.suspensionCount = (user.suspensionCount || 0) + 1;
+    } else {
+      user.suspensionReason = '';
+    }
+    
     await user.save();
 
-    res.json({ _id: user._id, name: user.name, status: user.status });
+    res.json({ _id: user._id, name: user.name, status: user.status, suspensionCount: user.suspensionCount });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -116,6 +125,62 @@ router.delete('/users/:id', async (req, res) => {
     ]);
 
     res.json({ message: `User ${user.name} and all their data deleted successfully` });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// @route   GET /api/admin/feedback
+// @desc    Get all feedback
+// @access  Private/Admin
+router.get('/feedback', async (req, res) => {
+  try {
+    const Feedback = require('../models/Feedback');
+    const feedbacks = await Feedback.find().sort({ createdAt: -1 });
+    res.json(feedbacks);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// @route   DELETE /api/admin/feedback/:id
+// @desc    Delete a feedback or appeal
+// @access  Private/Admin
+router.delete('/feedback/:id', async (req, res) => {
+  try {
+    const Feedback = require('../models/Feedback');
+    await Feedback.findByIdAndDelete(req.params.id);
+    res.json({ message: 'Feedback deleted successfully' });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// @route   GET /api/admin/journals
+// @desc    Get all public journals
+// @access  Private/Admin
+router.get('/journals', async (req, res) => {
+  try {
+    const journals = await Journal.find({ isPublic: true })
+      .populate('userId', 'name email')
+      .populate('comments.userId', 'name')
+      .sort({ createdAt: -1 });
+    res.json(journals);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// @route   DELETE /api/admin/journals/:id
+// @desc    Delete any journal (community moderation)
+// @access  Private/Admin
+router.delete('/journals/:id', async (req, res) => {
+  try {
+    const journal = await Journal.findByIdAndDelete(req.params.id);
+    if (!journal) {
+      return res.status(404).json({ message: 'Journal not found' });
+    }
+    res.json({ message: 'Journal deleted successfully' });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
