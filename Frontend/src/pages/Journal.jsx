@@ -18,13 +18,16 @@ export default function Journal() {
   const [title, setTitle] = useState('')
   const [content, setContent] = useState('')
   const [isPublic, setIsPublic] = useState(false)
-  const [mood, setMood] = useState('Neutral')
+  const [selectedFiles, setSelectedFiles] = useState([])
+  const [previews, setPreviews] = useState([])
   
   const [selectedEntry, setSelectedEntry] = useState(null)
   const [showSummary, setShowSummary] = useState(false)
   const [weeklySummary, setWeeklySummary] = useState('')
 
-  const moods = ['Happy', 'Grateful', 'Neutral', 'Stressed', 'Reflective', 'Productive']
+  // Comments & Interactions
+  const [expandedComments, setExpandedComments] = useState({})
+  const [commentTexts, setCommentTexts] = useState({})
 
   useEffect(() => { 
     // Guests are locked to 'community'
@@ -36,6 +39,38 @@ export default function Journal() {
       else fetchPublicEntries()
     }
   }, [activeTab, user])
+
+  const computeEntrySentiment = (text) => {
+    if (localStorage.getItem('aiEnabled') === 'false') return null;
+    if (!text) return null;
+    const lowerText = text.toLowerCase();
+    
+    // Expanded vocabulary
+    const positiveWords = ['happy', 'excited', 'great', 'amazing', 'proud', 'motivated', 'joy', 'achieved', 'awesome', 'wonderful', 'love', 'grateful', 'progress', 'success', 'confident', 'good', 'better', 'peace', 'calm', 'relaxed', 'fun', 'laugh', 'smile'];
+    const negativeWords = ['stressed', 'tired', 'anxious', 'overwhelmed', 'deadline', 'failed', 'behind', 'worried', 'difficult', 'bad', 'sad', 'exhausted', 'frustrated', 'stuck', 'hard', 'struggle', 'empty', 'disconnected', 'alone', 'pressure', 'pain', 'painful', 'painfully', 'depressed', 'cry', 'crying', 'lonely', 'exhausting', 'drained', 'heavy', 'hurt', 'lost'];
+    
+    let posScore = 0;
+    let negScore = 0;
+    
+    // Count exact word matches
+    positiveWords.forEach(w => { 
+      const regex = new RegExp(`\\b${w}\\b`, 'g');
+      const matches = lowerText.match(regex);
+      if (matches) posScore += matches.length;
+    });
+    
+    negativeWords.forEach(w => { 
+      const regex = new RegExp(`\\b${w}\\b`, 'g');
+      const matches = lowerText.match(regex);
+      if (matches) negScore += matches.length;
+    });
+
+    if (posScore === 0 && negScore === 0) return { emoji: '😐', label: 'Balanced', color: 'blue' };
+    if (negScore > posScore) return { emoji: '😓', label: 'Stressed / Down', color: 'amber' };
+    if (posScore > negScore) return { emoji: '😊', label: 'Positive', color: 'emerald' };
+    
+    return { emoji: '😐', label: 'Balanced', color: 'blue' };
+  }
 
   const fetchEntries = async () => {
     setLoading(true)
@@ -55,17 +90,41 @@ export default function Journal() {
     finally { setLoading(false) }
   }
 
+  const handleImageSelect = (e) => {
+    const files = Array.from(e.target.files)
+    if (files.length + selectedFiles.length > 5) {
+      toast.error('You can only upload up to 5 images')
+      return
+    }
+    setSelectedFiles(prev => [...prev, ...files])
+    const newPreviews = files.map(file => URL.createObjectURL(file))
+    setPreviews(prev => [...prev, ...newPreviews])
+  }
+
+  const removeImage = (index) => {
+    setSelectedFiles(prev => prev.filter((_, i) => i !== index))
+    setPreviews(prev => prev.filter((_, i) => i !== index))
+  }
+
   const handleSave = async () => {
-    if (!title.trim() && !content.trim()) return
+    if (!title.trim() && !content.trim() && selectedFiles.length === 0) return
     try {
-      const payload = { title, content, isPublic, mood }
+      const formData = new FormData();
+      formData.append('title', title);
+      formData.append('content', content);
+      formData.append('isPublic', isPublic);
+      
+      selectedFiles.forEach(file => {
+        formData.append('images', file);
+      });
+
       if (editingId) {
-        const { data } = await API.put(`/journal/${editingId}`, payload)
+        const { data } = await API.put(`/journal/${editingId}`, formData)
         setEntries(prev => prev.map(e => e._id === editingId ? data : e))
         toast.success('Entry updated')
         setEditingId(null)
       } else {
-        const { data } = await API.post('/journal', payload)
+        const { data } = await API.post('/journal', formData)
         setEntries(prev => [data, ...prev])
         toast.success('Entry saved')
       }
@@ -77,8 +136,9 @@ export default function Journal() {
     setTitle('')
     setContent('')
     setIsPublic(false)
-    setMood('Neutral')
     setEditingId(null)
+    setSelectedFiles([])
+    setPreviews([])
     setIsWriting(false)
   }
 
@@ -86,10 +146,56 @@ export default function Journal() {
     setTitle(entry.title)
     setContent(entry.content)
     setIsPublic(entry.isPublic || false)
-    setMood(entry.mood || 'Neutral')
     setEditingId(entry._id)
+    setSelectedFiles([])
+    setPreviews(entry.images || [])
     setIsWriting(true)
     setSelectedEntry(null)
+  }
+
+  const toggleLike = async (entryId) => {
+    if (!user) return toast.error('Please log in to like posts');
+    try {
+      const { data } = await API.post(`/journal/${entryId}/like`);
+      setEntries(prev => prev.map(e => e._id === entryId ? data : e));
+      setPublicEntries(prev => prev.map(e => e._id === entryId ? data : e));
+    } catch {
+      toast.error('Failed to like post');
+    }
+  }
+
+  const toggleComments = (entryId) => {
+    setExpandedComments(prev => ({
+      ...prev,
+      [entryId]: !prev[entryId]
+    }));
+  }
+
+  const submitComment = async (entryId) => {
+    if (!user) return toast.error('Please log in to comment');
+    const text = commentTexts[entryId];
+    if (!text || !text.trim()) return;
+
+    try {
+      const { data } = await API.post(`/journal/${entryId}/comment`, { text });
+      setEntries(prev => prev.map(e => e._id === entryId ? data : e));
+      setPublicEntries(prev => prev.map(e => e._id === entryId ? data : e));
+      setCommentTexts(prev => ({ ...prev, [entryId]: '' }));
+      toast.success('Comment added');
+    } catch {
+      toast.error('Failed to post comment');
+    }
+  }
+
+  const handleDeleteComment = async (entryId, commentId) => {
+    try {
+      const { data } = await API.delete(`/journal/${entryId}/comment/${commentId}`);
+      setEntries(prev => prev.map(entry => entry._id === entryId ? data : entry));
+      setPublicEntries(prev => prev.map(entry => entry._id === entryId ? data : entry));
+      toast.success('Comment deleted');
+    } catch {
+      toast.error('Failed to delete comment');
+    }
   }
 
   const handleDelete = async (id) => {
@@ -162,14 +268,14 @@ export default function Journal() {
           {user && (
             <div className="flex items-center gap-8 border-b border-white/5">
               <button 
-                onClick={() => setActiveTab('my')} 
+                onClick={() => { setActiveTab('my'); setSelectedEntry(null); }} 
                 className={`text-sm pb-4 transition-all relative ${activeTab === 'my' ? 'text-white font-medium' : 'text-white/40 hover:text-white'}`}
               >
                 For You
                 {activeTab === 'my' && <div className="absolute bottom-0 left-0 right-0 h-1 bg-teal-500 rounded-t-full" />}
               </button>
               <button 
-                onClick={() => setActiveTab('community')} 
+                onClick={() => { setActiveTab('community'); setSelectedEntry(null); }} 
                 className={`text-sm pb-4 transition-all relative ${activeTab === 'community' ? 'text-white font-medium' : 'text-white/40 hover:text-white'}`}
               >
                 Community
@@ -208,11 +314,6 @@ export default function Journal() {
           <div className="animate-fade-rise mb-12">
             <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-black/20 backdrop-blur-2xl">
               <div className="p-6 md:p-8">
-                <div className="flex flex-wrap gap-2 mb-6">
-                  {moods.map(m => (
-                    <button key={m} onClick={() => setMood(m)} className={`px-3 py-1.5 rounded-lg text-xs border transition-all ${mood === m ? 'bg-teal-500/20 border-teal-500/50 text-teal-300' : 'border-white/5 text-white/30 hover:border-white/10'}`}>{m}</button>
-                  ))}
-                </div>
                 <input 
                   type="text" 
                   value={title} 
@@ -228,14 +329,40 @@ export default function Journal() {
                   rows={6} 
                   className="w-full bg-transparent border-none text-white text-lg focus:outline-none placeholder:text-white/20 resize-none leading-relaxed" 
                 />
+
+                {/* Image Previews */}
+                {previews.length > 0 && (
+                  <div className="flex gap-4 mt-4 overflow-x-auto pb-2">
+                    {previews.map((preview, idx) => (
+                      <div key={idx} className="relative w-24 h-24 flex-shrink-0 rounded-xl overflow-hidden border border-white/10 group">
+                        <img src={preview} alt="preview" className="w-full h-full object-cover" />
+                        <button 
+                          onClick={() => removeImage(idx)} 
+                          className="absolute top-1 right-1 w-6 h-6 bg-black/50 hover:bg-red-500/80 rounded-full flex items-center justify-center text-white backdrop-blur-md opacity-0 group-hover:opacity-100 transition-all"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
                 <div className="flex items-center justify-between mt-6 pt-6 border-t border-white/5">
-                  <label className="flex items-center gap-3 cursor-pointer group">
-                    <input type="checkbox" checked={isPublic} onChange={e => setIsPublic(e.target.checked)} className="hidden" />
-                    <div className={`w-10 h-5 rounded-full transition-all relative ${isPublic ? 'bg-teal-500' : 'bg-white/10'}`}>
-                      <div className={`absolute top-1 w-3 h-3 rounded-full bg-white transition-all ${isPublic ? 'left-6' : 'left-1'}`} />
-                    </div>
-                    <span className="text-xs text-white/40 group-hover:text-white/60">Public Post</span>
-                  </label>
+                  <div className="flex items-center gap-6">
+                    <label className="flex items-center gap-3 cursor-pointer group">
+                      <input type="checkbox" checked={isPublic} onChange={e => setIsPublic(e.target.checked)} className="hidden" />
+                      <div className={`w-10 h-5 rounded-full transition-all relative ${isPublic ? 'bg-teal-500' : 'bg-white/10'}`}>
+                        <div className={`absolute top-1 w-3 h-3 rounded-full bg-white transition-all ${isPublic ? 'left-6' : 'left-1'}`} />
+                      </div>
+                      <span className="text-xs text-white/40 group-hover:text-white/60">Public Post</span>
+                    </label>
+                    
+                    <label className="flex items-center gap-2 cursor-pointer text-white/40 hover:text-teal-400 transition-colors">
+                      <input type="file" multiple accept="image/*" onChange={handleImageSelect} className="hidden" />
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                      <span className="text-xs">Add Photo</span>
+                    </label>
+                  </div>
                   <div className="flex gap-4">
                     <button onClick={resetForm} className="text-sm text-white/40 hover:text-white">Discard</button>
                     <button onClick={handleSave} className="liquid-glass px-6 py-2 rounded-full text-sm text-white font-medium">Post</button>
@@ -256,10 +383,17 @@ export default function Journal() {
               </button>
               <h2 className="text-4xl text-white mb-4" style={{ fontFamily: "'Instrument Serif', serif" }}>{selectedEntry.title}</h2>
               <div className="flex items-center gap-3 mb-8">
-                <span className="px-2 py-0.5 rounded-md bg-teal-500/10 border border-teal-500/20 text-[10px] text-teal-400 uppercase tracking-widest">{selectedEntry.mood}</span>
                 <span className="text-white/30 text-xs">{fmt(selectedEntry.createdAt)}</span>
               </div>
-              <p className="text-white/80 text-xl leading-relaxed whitespace-pre-wrap font-light">{selectedEntry.content}</p>
+              <p className="text-white/80 text-xl leading-relaxed whitespace-pre-wrap font-light mb-8">{selectedEntry.content}</p>
+              
+              {selectedEntry.images && selectedEntry.images.length > 0 && (
+                <div className="flex flex-col gap-4">
+                  {selectedEntry.images.map((img, idx) => (
+                    <img key={idx} src={img} alt="Attached" className="rounded-xl w-full object-cover max-h-[500px]" />
+                  ))}
+                </div>
+              )}
               {user && selectedEntry.userId?._id === user.id && (
                 <div className="flex gap-4 mt-12 pt-8 border-t border-white/5">
                   <button onClick={() => handleEdit(selectedEntry)} className="text-xs text-white/40 hover:text-white">Edit Reflection</button>
@@ -272,25 +406,28 @@ export default function Journal() {
 
         {/* Feed View */}
         {!selectedEntry && (
-          <div className="flex flex-col gap-px bg-white/5 border-x border-white/5">
+          <div className={activeTab === 'my' ? "grid grid-cols-1 md:grid-cols-2 gap-6 mt-4" : "flex flex-col gap-px bg-white/5 border-x border-white/5"}>
             {loading ? (
-              <div className="text-center py-24">
+              <div className={`text-center py-24 ${activeTab === 'my' ? 'col-span-full' : ''}`}>
                 <div className="w-6 h-6 border-2 border-teal-500/20 border-t-teal-500 rounded-full animate-spin mx-auto mb-4" />
                 <span className="text-white/20 text-sm">Synchronizing feed...</span>
               </div>
             ) : (activeTab === 'my' ? entries : publicEntries).length === 0 ? (
-              <div className="text-center py-32 bg-[hsl(201,100%,10%)]">
+              <div className={`text-center py-32 bg-[hsl(201,100%,10%)] ${activeTab === 'my' ? 'col-span-full rounded-2xl border border-white/5' : ''}`}>
                 <h3 className="text-2xl text-white/40" style={{ fontFamily: "'Instrument Serif', serif" }}>
                   {activeTab === 'my' ? 'Silence in your space' : 'The community is quiet'}
                 </h3>
                 <p className="text-white/20 text-sm mt-2">Be the one to break it.</p>
               </div>
             ) : (
-              (activeTab === 'my' ? entries : publicEntries).map((entry, index) => (
+              (activeTab === 'my' ? entries : publicEntries).map((entry, index) => {
+                const sentiment = computeEntrySentiment((entry.title || '') + ' ' + (entry.content || ''));
+                
+                return (
                 <div 
                   key={entry._id} 
                   onClick={() => !isWriting && setSelectedEntry(entry)} 
-                  className="group bg-[hsl(201,100%,11%)] hover:bg-[hsl(201,100%,13%)] border-b border-white/5 p-6 cursor-pointer transition-all duration-300"
+                  className={`group bg-[hsl(201,100%,11%)] hover:bg-[hsl(201,100%,13%)] cursor-pointer transition-all duration-300 ${activeTab === 'my' ? 'rounded-2xl border border-white/10 p-6 shadow-xl hover:-translate-y-1' : 'border-b border-white/5 p-6'}`}
                 >
                   <div className="flex gap-4">
                     {/* Twitter-style Avatar */}
@@ -307,37 +444,123 @@ export default function Journal() {
                         <span className="text-white/40 text-sm truncate">@{entry.userId?.name?.toLowerCase().replace(/\s/g, '') || 'velorah_user'}</span>
                         <span className="text-white/20">·</span>
                         <span className="text-white/40 text-sm">{fmtRelative(entry.createdAt)}</span>
-                        {entry.mood && (
-                           <span className="ml-auto text-[10px] px-2 py-0.5 rounded bg-white/5 border border-white/5 text-white/30 uppercase tracking-tighter">{entry.mood}</span>
+                        
+                        {/* Automated Sentiment Badge */}
+                        {sentiment && (
+                           <div className={`ml-auto flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-md bg-${sentiment.color}-500/10 border border-${sentiment.color}-500/20 text-${sentiment.color}-400 uppercase tracking-tighter`}>
+                             <span>{sentiment.emoji}</span>
+                             <span>{sentiment.label}</span>
+                           </div>
                         )}
                       </div>
 
                       <h3 className="text-lg text-white font-medium mb-1 line-clamp-1" style={{ fontFamily: "'Instrument Serif', serif" }}>{entry.title}</h3>
-                      <p className="text-white/60 leading-relaxed text-[15px] line-clamp-4 font-light">{entry.content}</p>
+                      <p className="text-white/60 leading-relaxed text-[15px] line-clamp-4 font-light mb-4">{entry.content}</p>
 
-                      <div className="flex items-center gap-10 mt-4 text-white/20">
-                        <div className="flex items-center gap-2 group/icon">
-                          <div className="p-2 rounded-full group-hover/icon:bg-teal-500/10 group-hover/icon:text-teal-400 transition-all">
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                      {entry.images && entry.images.length > 0 && (
+                        <div className="flex gap-2 overflow-hidden rounded-xl mb-4 h-48 md:h-64">
+                          {entry.images.slice(0, 3).map((img, idx) => (
+                            <img key={idx} src={img} alt="Attached" className={`h-full object-cover ${entry.images.length === 1 ? 'w-full' : 'flex-1'}`} />
+                          ))}
+                          {entry.images.length > 3 && (
+                            <div className="flex-1 h-full bg-black/40 border border-white/5 flex items-center justify-center text-white/50 text-xl font-medium">
+                              +{entry.images.length - 3}
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {activeTab === 'community' && (
+                        <>
+                          <div className="flex items-center gap-10 mt-4 text-white/20">
+                            <div 
+                              className="flex items-center gap-2 group/icon cursor-pointer"
+                              onClick={(e) => { e.stopPropagation(); toggleComments(entry._id); }}
+                            >
+                              <div className={`p-2 rounded-full transition-all ${expandedComments[entry._id] ? 'bg-teal-500/10 text-teal-400' : 'group-hover/icon:bg-teal-500/10 group-hover/icon:text-teal-400'}`}>
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                              </div>
+                              <span className={`text-xs ${expandedComments[entry._id] ? 'text-teal-400' : 'group-hover/icon:text-teal-400'}`}>
+                                {entry.comments?.length || 0}
+                              </span>
+                            </div>
+                            <div 
+                              className="flex items-center gap-2 group/icon cursor-pointer"
+                              onClick={(e) => { e.stopPropagation(); toggleLike(entry._id); }}
+                            >
+                              <div className={`p-2 rounded-full transition-all ${entry.likes?.includes(user?.id) ? 'bg-red-500/10 text-red-500' : 'group-hover/icon:bg-red-500/10 group-hover/icon:text-red-400'}`}>
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill={entry.likes?.includes(user?.id) ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+                              </div>
+                              <span className={`text-xs ${entry.likes?.includes(user?.id) ? 'text-red-500' : 'group-hover/icon:text-red-400'}`}>
+                                {entry.likes?.length || 0}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2 group/icon ml-auto">
+                               <div className="p-2 rounded-full group-hover/icon:bg-white/10 transition-all cursor-pointer">
+                                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
+                               </div>
+                            </div>
                           </div>
-                          <span className="text-xs group-hover/icon:text-teal-400">2</span>
-                        </div>
-                        <div className="flex items-center gap-2 group/icon">
-                          <div className="p-2 rounded-full group-hover/icon:bg-red-500/10 group-hover/icon:text-red-400 transition-all">
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
-                          </div>
-                          <span className="text-xs group-hover/icon:text-red-400">12</span>
-                        </div>
-                        <div className="flex items-center gap-2 group/icon ml-auto">
-                           <div className="p-2 rounded-full group-hover/icon:bg-white/10 transition-all">
-                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
-                           </div>
-                        </div>
-                      </div>
+
+                          {/* Expanded Comments Section */}
+                          {expandedComments[entry._id] && (
+                            <div className="mt-4 pt-4 border-t border-white/5 space-y-4" onClick={e => e.stopPropagation()}>
+                              {entry.comments?.map(comment => (
+                                <div key={comment._id} className="flex gap-3">
+                                  <div className="w-8 h-8 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-xs flex-shrink-0">
+                                    {comment.userId?.name?.charAt(0) || 'U'}
+                                  </div>
+                                  <div className="flex-1 bg-black/20 rounded-2xl rounded-tl-none p-3 border border-white/5">
+                                    <div className="flex items-center gap-2 mb-1 w-full">
+                                      <span className="text-white text-sm font-medium">{comment.userId?.name || 'User'}</span>
+                                      <span className="text-white/30 text-[10px]">{fmtRelative(comment.createdAt)}</span>
+                                      {user && (comment.userId?._id === user._id || comment.userId === user._id) && (
+                                        <button onClick={() => handleDeleteComment(entry._id, comment._id)} className="ml-auto text-white/20 hover:text-red-400 transition-colors">
+                                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+                                        </button>
+                                      )}
+                                    </div>
+                                    <p className="text-white/70 text-sm font-light leading-relaxed">{comment.text}</p>
+                                  </div>
+                                </div>
+                              ))}
+                              
+                              {user ? (
+                                <div className="flex gap-3 mt-2">
+                                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-teal-500/20 to-blue-500/20 border border-white/10 flex items-center justify-center text-xs flex-shrink-0">
+                                    {user.name?.charAt(0) || 'M'}
+                                  </div>
+                                  <div className="flex-1 relative">
+                                    <input 
+                                      type="text" 
+                                      placeholder="Write a comment..." 
+                                      value={commentTexts[entry._id] || ''}
+                                      onChange={e => setCommentTexts(prev => ({ ...prev, [entry._id]: e.target.value }))}
+                                      onKeyDown={e => e.key === 'Enter' && submitComment(entry._id)}
+                                      className="w-full bg-white/5 border border-white/10 rounded-full py-2 pl-4 pr-10 text-sm text-white focus:outline-none focus:border-teal-500/50 transition-colors"
+                                    />
+                                    <button 
+                                      onClick={() => submitComment(entry._id)}
+                                      disabled={!commentTexts[entry._id]?.trim()}
+                                      className="absolute right-2 top-1.5 p-1 text-teal-400 hover:text-teal-300 disabled:opacity-30 transition-all"
+                                    >
+                                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                                    </button>
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="text-center py-2 text-xs text-white/40">
+                                  <Link to="/login" className="text-teal-400 hover:underline">Log in</Link> to join the conversation.
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </>
+                      )}
                     </div>
                   </div>
                 </div>
-              ))
+              )})
             )}
           </div>
         )}

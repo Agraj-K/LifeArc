@@ -1,19 +1,23 @@
 import { useState } from 'react'
 import { toast } from 'sonner'
+import API from '../api'
 
 export default function Feedback() {
   const [formData, setFormData] = useState({ name: '', email: '', message: '', type: 'Feedback' })
   const [isSubmitting, setIsSubmitting] = useState(false)
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
     setIsSubmitting(true)
-    // Simulate API call
-    setTimeout(() => {
+    try {
+      await API.post('/feedback', formData)
       toast.success('Thank you for your feedback!')
       setFormData({ name: '', email: '', message: '', type: 'Feedback' })
+    } catch (err) {
+      toast.error('Failed to submit feedback. Please try again later.')
+    } finally {
       setIsSubmitting(false)
-    }, 1500)
+    }
   }
 
   return (

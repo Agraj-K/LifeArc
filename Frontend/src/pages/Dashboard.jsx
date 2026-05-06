@@ -10,6 +10,16 @@ export default function Dashboard() {
   const [goals, setGoals] = useState([])
   const [aiInsights, setAiInsights] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [currentEventIndex, setCurrentEventIndex] = useState(0)
+  const [upNext, setUpNext] = useState(null)
+
+  useEffect(() => {
+    if (recentEvents.length <= 1) return;
+    const interval = setInterval(() => {
+      setCurrentEventIndex(prev => (prev + 1) % recentEvents.length);
+    }, 6000);
+    return () => clearInterval(interval);
+  }, [recentEvents]);
 
   useEffect(() => {
     const fetchDashboard = async () => {
@@ -23,6 +33,13 @@ export default function Dashboard() {
         setStats(profileRes.data.stats)
         setRecentEvents(eventsRes.data.slice(0, 4))
         setGoals(goalsRes.data.slice(0, 3))
+        
+        const now = new Date();
+        const futureItems = [
+          ...eventsRes.data.filter(e => e.startDate && new Date(e.startDate) > now).map(e => ({ ...e, type: 'Event', date: new Date(e.startDate) })),
+          ...goalsRes.data.filter(g => g.targetDate && new Date(g.targetDate) > now).map(g => ({ ...g, type: 'Goal', date: new Date(g.targetDate) }))
+        ].sort((a, b) => a.date - b.date);
+        setUpNext(futureItems.length > 0 ? futureItems[0] : null);
         // Compute AI insights from last 5 journal entries
         const recentJournal = journalRes.data.slice(0, 5)
         setAiInsights(computeInsights(recentJournal))
@@ -36,6 +53,7 @@ export default function Dashboard() {
   }, [])
 
   const computeInsights = (entries) => {
+    if (localStorage.getItem('aiEnabled') === 'false') return null
     if (!entries || entries.length === 0) return null
     const positiveWords = ['happy', 'excited', 'great', 'amazing', 'proud', 'motivated', 'joy', 'achieved', 'awesome', 'wonderful', 'love', 'grateful', 'progress', 'success', 'confident']
     const negativeWords = ['stressed', 'tired', 'anxious', 'overwhelmed', 'deadline', 'failed', 'behind', 'worried', 'difficult', 'bad', 'sad', 'exhausted', 'frustrated', 'stuck']
@@ -66,6 +84,27 @@ export default function Dashboard() {
     return { mood, meta: moodMeta[mood], recs: recommendations[mood], entriesAnalyzed: entries.length }
   }
 
+  const calculateYearProgress = () => {
+    const now = new Date();
+    const start = new Date(now.getFullYear(), 0, 1);
+    const end = new Date(now.getFullYear() + 1, 0, 1);
+    const progress = ((now - start) / (end - start)) * 100;
+    return {
+      percentage: progress.toFixed(1),
+      daysLeft: Math.ceil((end - now) / (1000 * 60 * 60 * 24))
+    };
+  };
+  const yearProgress = calculateYearProgress();
+
+  const quotes = [
+    "The secret of getting ahead is getting started.",
+    "It does not matter how slowly you go as long as you do not stop.",
+    "Everything you can imagine is real.",
+    "Whatever you are, be a good one.",
+    "Turn your wounds into wisdom."
+  ];
+  const quoteOfDay = quotes[new Date().getDay() % quotes.length];
+
   return (
     <div className="relative min-h-screen w-full overflow-hidden" style={{ backgroundColor: 'hsl(201, 100%, 13%)' }}>
       
@@ -90,66 +129,78 @@ export default function Dashboard() {
           </p>
         </div>
 
-        {/* Stats Grid */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-12">
-          {[
-            { label: 'Life Events', value: stats.events, icon: 'M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5', color: 'teal' },
-            { label: 'Active Goals', value: stats.goals, icon: 'M12 20V10M18 20V4M6 20v-6', color: 'blue' },
-            { label: 'Habit Streak', value: `${stats.streak} days`, icon: 'M13 2L3 14h9l-1 8 10-12h-9l1-8z', color: 'cyan' },
-            { label: 'Journal Entries', value: stats.journalEntries, icon: 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z', color: 'emerald' },
-          ].map((stat, i) => (
-            <div key={i} className="group relative overflow-hidden rounded-2xl border border-white/10 bg-white/5 backdrop-blur-sm p-6 hover:bg-white/10 hover:border-white/20 transition-all duration-500">
-              <div className={`absolute top-0 left-0 w-full h-1 bg-${stat.color}-500/50 opacity-0 group-hover:opacity-100 transition-opacity duration-500`} />
-              <svg className={`text-${stat.color}-400 mb-4`} width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d={stat.icon} />
-              </svg>
-              <div className="text-3xl text-white font-semibold mb-1">{stat.value}</div>
-              <div className="text-white/40 text-sm">{stat.label}</div>
-            </div>
-          ))}
-        </div>
-
         {/* Two Column Layout */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           
-          {/* Recent Events */}
-          <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-black/20 backdrop-blur-2xl shadow-2xl shadow-black/50">
-            <div className="absolute -top-[100px] -left-[100px] w-[300px] h-[300px] bg-teal-500/20 rounded-full blur-[100px] pointer-events-none" />
-            
-            <div className="relative p-8">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-2xl text-white" style={{ fontFamily: "'Instrument Serif', serif" }}>
-                  Recent Events
-                </h2>
-                <Link to="/events" className="text-sm text-teal-400 hover:text-teal-300 transition-colors">
-                  View All →
-                </Link>
+          {/* Memories Carousel (Recent Events) */}
+          <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-black/40 backdrop-blur-2xl shadow-2xl shadow-black/50 min-h-[400px]">
+            {recentEvents.length === 0 ? (
+              <div className="absolute inset-0 flex flex-col items-center justify-center p-8 text-center bg-black/20">
+                <h2 className="text-3xl text-white mb-2" style={{ fontFamily: "'Instrument Serif', serif" }}>Memories</h2>
+                <p className="text-white/40 text-sm mb-4">No memories yet. Start capturing your journey.</p>
+                <Link to="/events" className="text-teal-400 hover:text-teal-300 text-sm bg-white/5 px-4 py-2 rounded-full border border-white/10">Capture Memory →</Link>
               </div>
-
-              <div className="space-y-4">
-                {recentEvents.length === 0 ? (
-                  <p className="text-white/40 text-sm text-center py-6">No events yet. <Link to="/events" className="text-teal-400 hover:text-teal-300">Create one →</Link></p>
-                ) : recentEvents.map((event) => (
-                  <div key={event._id} className="group flex items-center gap-4 p-4 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 hover:border-white/20 transition-all duration-300">
-                    <div className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center group-hover:border-teal-500/30 transition-colors">
-                      <svg className="text-white/40 group-hover:text-teal-400 transition-colors" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
-                      </svg>
-                    </div>
-                    <div className="flex-1">
-                      <h3 className="text-white font-medium group-hover:text-teal-200 transition-colors">{event.title}</h3>
-                      <p className="text-white/40 text-xs">{event.category} · {event.startDate ? new Date(event.startDate).toLocaleDateString() : 'No date'}</p>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-white/60 text-sm">{event.progress}%</div>
-                      <div className="w-16 h-1 bg-white/10 rounded-full mt-1 overflow-hidden">
-                        <div className="h-full bg-teal-500/60 rounded-full" style={{ width: `${event.progress}%` }} />
+            ) : (
+              <>
+                {recentEvents.map((event, index) => {
+                  const isActive = index === currentEventIndex;
+                  const hasImage = event.images && event.images.length > 0;
+                  return (
+                    <div 
+                      key={event._id} 
+                      className={`absolute inset-0 transition-opacity duration-1000 ease-in-out ${isActive ? 'opacity-100 z-10' : 'opacity-0 z-0'}`}
+                    >
+                      {hasImage ? (
+                        <img 
+                          src={event.images[0]} 
+                          className={`w-full h-full object-cover transition-transform duration-[10000ms] ease-linear ${isActive ? 'scale-110' : 'scale-100'}`} 
+                          alt={event.title} 
+                        />
+                      ) : (
+                        <div className="w-full h-full bg-gradient-to-br from-[hsl(201,100%,10%)] to-blue-900/60 flex items-center justify-center relative overflow-hidden">
+                           <div className="absolute inset-0 opacity-20" style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")` }} />
+                           <svg className="text-white/10 w-1/3 h-1/3 relative z-10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
+                        </div>
+                      )}
+                      
+                      {/* Gradient Overlay for text readability */}
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-black/10 pointer-events-none" />
+                      
+                      {/* Event Info */}
+                      <div className="absolute inset-0 p-8 flex flex-col justify-between pointer-events-none">
+                        <div className="flex justify-between items-start">
+                          <h2 className="text-2xl text-white/90 drop-shadow-md" style={{ fontFamily: "'Instrument Serif', serif" }}>
+                            Memories
+                          </h2>
+                          <Link to="/events" className="text-xs text-white/70 hover:text-white bg-black/40 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/10 pointer-events-auto transition-colors">
+                            View All
+                          </Link>
+                        </div>
+                        <div className="translate-y-4 transition-transform duration-1000" style={{ transform: isActive ? 'translateY(0)' : 'translateY(1rem)' }}>
+                          <div className="inline-block px-2.5 py-1 rounded-full text-[10px] uppercase tracking-wider border border-white/20 bg-white/10 backdrop-blur-md text-white mb-3 drop-shadow-md">
+                            {event.category}
+                          </div>
+                          <h3 className="text-3xl text-white font-medium mb-2 drop-shadow-lg leading-tight" style={{ fontFamily: "'Instrument Serif', serif" }}>{event.title}</h3>
+                          <div className="text-white/80 text-sm drop-shadow-md flex items-center gap-2">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></svg>
+                            {event.startDate ? new Date(event.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'No date'}
+                          </div>
+                        </div>
                       </div>
                     </div>
-                  </div>
+                  );
+                })}
+              </>
+            )}
+            
+            {/* Carousel Indicators */}
+            {recentEvents.length > 1 && (
+              <div className="absolute bottom-8 right-8 flex gap-1.5 z-20">
+                {recentEvents.map((_, i) => (
+                  <div key={i} className={`h-1.5 rounded-full transition-all duration-500 ${i === currentEventIndex ? 'w-6 bg-white' : 'w-1.5 bg-white/30'}`} />
                 ))}
               </div>
-            </div>
+            )}
           </div>
 
           {/* Active Goals */}
@@ -193,27 +244,68 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Quick Actions */}
-        <div className="mt-8 grid grid-cols-2 md:grid-cols-4 gap-4">
-          {[
-            { label: 'New Event', path: '/events', icon: 'M12 5v14M5 12h14' },
-            { label: 'New Goal', path: '/goals', icon: 'M12 20V10M18 20V4M6 20v-6' },
-            { label: 'Journal', path: '/journal', icon: 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z' },
-            { label: 'Habits', path: '/habits', icon: 'M13 2L3 14h9l-1 8 10-12h-9l1-8z' },
-          ].map((action, i) => (
-            <Link 
-              key={i}
-              to={action.path}
-              className="group flex items-center gap-3 p-4 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 hover:border-white/20 transition-all duration-300"
-            >
-              <div className="w-10 h-10 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center group-hover:border-teal-500/30 transition-colors">
-                <svg className="text-white/40 group-hover:text-teal-400 transition-colors" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d={action.icon} />
-                </svg>
+        {/* New Insight Widgets */}
+        <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-8">
+          
+          {/* Up Next Widget */}
+          <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-indigo-900/40 to-purple-900/40 backdrop-blur-2xl shadow-2xl p-8 flex flex-col justify-between">
+            <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full blur-[80px] pointer-events-none" />
+            <div>
+              <div className="flex items-center gap-2 mb-6">
+                <div className="p-2 rounded-lg bg-white/10 text-white">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                </div>
+                <h3 className="text-white/60 text-sm font-medium tracking-wide uppercase">Up Next</h3>
               </div>
-              <span className="text-white/60 group-hover:text-white transition-colors text-sm">{action.label}</span>
-            </Link>
-          ))}
+              
+              {upNext ? (
+                <div>
+                  <h4 className="text-3xl text-white mb-2" style={{ fontFamily: "'Instrument Serif', serif" }}>{upNext.title}</h4>
+                  <div className="flex items-center gap-3">
+                    <span className="px-2 py-1 rounded-md bg-white/10 text-white/80 text-xs border border-white/10">{upNext.type}</span>
+                    <span className="text-teal-400 text-sm font-medium">
+                      In {Math.ceil((upNext.date - new Date()) / (1000 * 60 * 60 * 24))} days
+                    </span>
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <h4 className="text-2xl text-white/40 mb-2" style={{ fontFamily: "'Instrument Serif', serif" }}>Nothing approaching</h4>
+                  <p className="text-white/30 text-sm">You have no upcoming events or goals scheduled.</p>
+                </div>
+              )}
+            </div>
+            
+            {upNext && (
+              <div className="mt-8">
+                <div className="text-white/40 text-xs mb-2">Target Date</div>
+                <div className="text-white/80">{upNext.date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</div>
+              </div>
+            )}
+          </div>
+
+          {/* Year in Progress & Quote */}
+          <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-black/20 backdrop-blur-2xl shadow-2xl p-8 flex flex-col justify-between">
+            <div>
+              <div className="flex justify-between items-end mb-4">
+                <h3 className="text-white/60 text-sm font-medium tracking-wide uppercase">Year in Progress</h3>
+                <span className="text-white text-2xl font-semibold">{yearProgress.percentage}%</span>
+              </div>
+              <div className="w-full h-3 bg-white/5 rounded-full overflow-hidden border border-white/10 mb-2">
+                <div className="h-full bg-gradient-to-r from-teal-400 to-blue-500 rounded-full" style={{ width: `${yearProgress.percentage}%` }} />
+              </div>
+              <div className="text-right text-white/40 text-xs">{yearProgress.daysLeft} days remaining in {new Date().getFullYear()}</div>
+            </div>
+
+            <div className="mt-8 p-6 rounded-2xl bg-white/5 border border-white/10 relative">
+              <div className="absolute -top-3 -left-2 text-4xl text-white/10 font-serif">"</div>
+              <p className="text-white/80 text-lg italic relative z-10 leading-relaxed" style={{ fontFamily: "'Instrument Serif', serif" }}>
+                {quoteOfDay}
+              </p>
+              <div className="text-white/30 text-xs mt-3">— Daily Motivation</div>
+            </div>
+          </div>
+          
         </div>
 
         {/* AI Insights Card */}

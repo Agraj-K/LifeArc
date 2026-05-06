@@ -22,6 +22,16 @@ API.interceptors.response.use(
       localStorage.removeItem('user')
       window.location.href = '/login'
     }
+    if (error.response?.status === 403) {
+      if (error.response?.data?.reason) {
+        localStorage.setItem('suspensionReason', error.response.data.reason)
+      }
+      const user = JSON.parse(localStorage.getItem('user') || '{}');
+      if (user.email) {
+        localStorage.setItem('suspensionEmail', user.email);
+      }
+      window.location.href = '/suspended'
+    }
     return Promise.reject(error)
   }
 )

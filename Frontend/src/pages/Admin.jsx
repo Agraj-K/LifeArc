@@ -5,43 +5,104 @@ import '../index.css'
 
 export default function Admin() {
   const [users, setUsers] = useState([])
+  const [feedbacks, setFeedbacks] = useState([])
+  const [journals, setJournals] = useState([])
   const [platformStats, setPlatformStats] = useState({ totalUsers: 0, activeUsers: 0, suspendedUsers: 0, totalEvents: 0, totalGoals: 0 })
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedTab, setSelectedTab] = useState('users')
+  const [suspendModal, setSuspendModal] = useState({ isOpen: false, userId: null, reason: '', submitting: false })
+  const [deleteModal, setDeleteModal] = useState({ isOpen: false, type: null, id: null, submitting: false })
 
   useEffect(() => { fetchData() }, [])
 
   const fetchData = async () => {
     try {
-      const [usersRes, statsRes] = await Promise.all([
+      const [usersRes, statsRes, feedbackRes, journalsRes] = await Promise.all([
         API.get('/admin/users'),
         API.get('/admin/stats'),
+        API.get('/admin/feedback'),
+        API.get('/admin/journals')
       ])
       setUsers(usersRes.data)
       setPlatformStats(statsRes.data)
+      setFeedbacks(feedbackRes.data)
+      setJournals(journalsRes.data)
     } catch { toast.error('Failed to load admin data') }
     finally { setLoading(false) }
   }
 
-  const handleSuspend = async (id) => {
+  const handleSuspend = async (id, currentStatus) => {
+    if (currentStatus === 'Active') {
+      setSuspendModal({ isOpen: true, userId: id, reason: '', submitting: false })
+      return
+    }
+    
     try {
-      const { data } = await API.patch(`/admin/users/${id}/suspend`)
-      setUsers(prev => prev.map(u => u._id === id ? { ...u, status: data.status } : u))
-      toast.success(`User ${data.status === 'Active' ? 'activated' : 'suspended'}`)
+      const { data } = await API.patch(`/admin/users/${id}/suspend`, { reason: '' })
+      
+      const user = users.find(u => u._id === id);
+      const appeal = feedbacks.find(fb => fb.email === user.email && fb.type === 'Appeal');
+      
+      setUsers(prev => prev.map(u => u._id === id ? { ...u, status: data.status, suspensionCount: data.suspensionCount } : u))
+      setPlatformStats(prev => ({ 
+        ...prev, 
+        activeUsers: prev.activeUsers + 1, 
+        suspendedUsers: Math.max(0, prev.suspendedUsers - 1) 
+      }))
+      
+      if (appeal) {
+        await API.delete(`/admin/feedback/${appeal._id}`);
+        setFeedbacks(prev => prev.filter(fb => fb._id !== appeal._id));
+      }
+      
+      toast.success('User activated')
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to update user')
     }
   }
 
-  const handleDelete = async (id) => {
-    if (!window.confirm('Delete this user and all their data? This cannot be undone.')) return
+  const confirmSuspend = async (e) => {
+    e.preventDefault()
+    setSuspendModal(prev => ({ ...prev, submitting: true }))
     try {
-      await API.delete(`/admin/users/${id}`)
-      setUsers(prev => prev.filter(u => u._id !== id))
-      toast.success('User deleted')
+      const { data } = await API.patch(`/admin/users/${suspendModal.userId}/suspend`, { reason: suspendModal.reason })
+      setUsers(prev => prev.map(u => u._id === suspendModal.userId ? { ...u, status: data.status, suspensionCount: data.suspensionCount } : u))
+      setPlatformStats(prev => ({ 
+        ...prev, 
+        activeUsers: Math.max(0, prev.activeUsers - 1), 
+        suspendedUsers: prev.suspendedUsers + 1 
+      }))
+      toast.success('User suspended')
+      setSuspendModal({ isOpen: false, userId: null, reason: '', submitting: false })
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to delete user')
+      toast.error(err.response?.data?.message || 'Failed to suspend user')
+      setSuspendModal(prev => ({ ...prev, submitting: false }))
+    }
+  }
+
+  const confirmDelete = async (e) => {
+    e.preventDefault()
+    setDeleteModal(prev => ({ ...prev, submitting: true }))
+    try {
+      if (deleteModal.type === 'user') {
+        await API.delete(`/admin/users/${deleteModal.id}`)
+        setUsers(prev => prev.filter(u => u._id !== deleteModal.id))
+        setPlatformStats(prev => ({ ...prev, activeUsers: Math.max(0, prev.activeUsers - 1), totalUsers: Math.max(0, prev.totalUsers - 1) }))
+        toast.success('User deleted')
+      } else if (deleteModal.type === 'journal') {
+        await API.delete(`/admin/journals/${deleteModal.id}`)
+        setJournals(prev => prev.filter(j => j._id !== deleteModal.id))
+        toast.success('Post deleted')
+      } else if (deleteModal.type === 'feedback') {
+        await API.delete(`/admin/feedback/${deleteModal.id}`)
+        setFeedbacks(prev => prev.filter(fb => fb._id !== deleteModal.id))
+        toast.success('Feedback deleted')
+      }
+      setDeleteModal({ isOpen: false, type: null, id: null, submitting: false })
+    } catch {
+      toast.error(`Failed to delete ${deleteModal.type}`)
+      setDeleteModal(prev => ({ ...prev, submitting: false }))
     }
   }
 
@@ -50,12 +111,51 @@ export default function Admin() {
     u.email.toLowerCase().includes(searchQuery.toLowerCase())
   )
 
+  const handleUnsuspendFromAppeal = async (appealId, email) => {
+    const user = users.find(u => u.email.toLowerCase() === email.toLowerCase());
+    
+    // If the user doesn't exist in the system (or was a test dummy), just delete the ghost appeal.
+    if (!user) {
+      try {
+        await API.delete(`/admin/feedback/${appealId}`);
+        setFeedbacks(prev => prev.filter(fb => fb._id !== appealId));
+        toast.success('Ghost appeal deleted');
+      } catch {
+        toast.error('Failed to delete ghost appeal');
+      }
+      return;
+    }
+    
+    if (user.status !== 'Suspended') return toast.error('User is already active');
+    
+    try {
+      // Unsuspend user
+      const { data } = await API.patch(`/admin/users/${user._id}/suspend`, { reason: '' });
+      setUsers(prev => prev.map(u => u._id === user._id ? { ...u, status: data.status, suspensionCount: data.suspensionCount } : u));
+      
+      setPlatformStats(prev => ({ 
+        ...prev, 
+        activeUsers: prev.activeUsers + 1, 
+        suspendedUsers: Math.max(0, prev.suspendedUsers - 1) 
+      }))
+
+      // Delete appeal
+      await API.delete(`/admin/feedback/${appealId}`);
+      setFeedbacks(prev => prev.filter(fb => fb._id !== appealId));
+      
+      toast.success(`User ${email} has been activated and appeal resolved`);
+    } catch (err) {
+      toast.error('Failed to resolve appeal');
+    }
+  }
+
+  const regularFeedback = feedbacks.filter(fb => fb.type !== 'Appeal');
+  const appealsList = feedbacks.filter(fb => fb.type === 'Appeal');
+
   const stats = [
     { label: 'Total Users', value: platformStats.totalUsers, icon: 'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 7a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z' },
     { label: 'Active', value: platformStats.activeUsers, icon: 'M22 11.08V12a10 10 0 1 1-5.93-9.14M22 4 12 14.01l-3-3' },
-    { label: 'Suspended', value: platformStats.suspendedUsers, icon: 'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 7a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z' },
-    { label: 'Total Events', value: platformStats.totalEvents, icon: 'M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5' },
-    { label: 'Total Goals', value: platformStats.totalGoals, icon: 'M12 20V10M18 20V4M6 20v-6' },
+    { label: 'Suspended', value: platformStats.suspendedUsers, icon: 'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 7a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z' }
   ]
 
   return (
@@ -73,7 +173,7 @@ export default function Admin() {
         </div>
 
         {/* Stats Grid */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-12">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-12">
           {stats.map((stat, i) => (
             <div key={i} className="group relative overflow-hidden rounded-2xl border border-white/10 bg-white/5 backdrop-blur-sm p-6 hover:bg-white/10 hover:border-white/20 transition-all duration-500">
               <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-teal-500/0 via-teal-500/50 to-teal-500/0 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
@@ -86,7 +186,7 @@ export default function Admin() {
 
         {/* Tabs */}
         <div className="flex gap-2 mb-8">
-          {['users', 'settings'].map(tab => (
+          {['users', 'appeals', 'feedback', 'community'].map(tab => (
             <button key={tab} onClick={() => setSelectedTab(tab)} className={`px-6 py-3 rounded-xl text-sm font-medium transition-all duration-300 capitalize ${selectedTab === tab ? 'bg-white/10 text-white border border-white/20' : 'text-white/40 hover:text-white/60 border border-transparent'}`}>{tab}</button>
           ))}
         </div>
@@ -109,7 +209,7 @@ export default function Admin() {
                   <table className="w-full">
                     <thead>
                       <tr className="border-b border-white/10">
-                        {['User', 'Role', 'Status', 'Joined', 'Events', 'Goals', 'Actions'].map(h => (
+                        {['User', 'Role', 'Status', 'Suspensions', 'Joined', 'Actions'].map(h => (
                           <th key={h} className={`${h === 'Actions' ? 'text-right' : 'text-left'} text-white/40 text-sm font-medium py-4 px-4`}>{h}</th>
                         ))}
                       </tr>
@@ -134,17 +234,16 @@ export default function Admin() {
                           <td className="py-4 px-4">
                             <span className={`px-3 py-1 rounded-full text-xs border ${user.status === 'Active' ? 'text-emerald-400 border-emerald-500/30' : 'text-red-400 border-red-500/30'}`}>{user.status}</span>
                           </td>
+                          <td className="py-4 px-4 text-white/40 text-sm font-medium">{user.suspensionCount || 0}</td>
                           <td className="py-4 px-4 text-white/40 text-sm">{new Date(user.createdAt).toLocaleDateString()}</td>
-                          <td className="py-4 px-4 text-white/60 text-sm">{user.events}</td>
-                          <td className="py-4 px-4 text-white/60 text-sm">{user.goals}</td>
                           <td className="py-4 px-4">
                             <div className="flex items-center justify-end gap-2">
-                              <button onClick={() => handleSuspend(user._id)} className={`p-2 rounded-lg border transition-all duration-300 ${user.status === 'Active' ? 'bg-yellow-500/10 border-yellow-500/30 text-yellow-400 hover:bg-yellow-500/20' : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20'}`} title={user.status === 'Active' ? 'Suspend' : 'Activate'}>
+                              <button onClick={() => handleSuspend(user._id, user.status)} className={`p-2 rounded-lg border transition-all duration-300 ${user.status === 'Active' ? 'bg-yellow-500/10 border-yellow-500/30 text-yellow-400 hover:bg-yellow-500/20' : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20'}`} title={user.status === 'Active' ? 'Suspend' : 'Activate'}>
                                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                   {user.status === 'Active' ? <><path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-.43 2.8a2 2 0 0 0 2 2.3H10z"/><path d="M17 12v4a3 3 0 0 1-3 3l-4-9V2h10.28a2 2 0 0 1 2 1.7l.43 2.8a2 2 0 0 1-2 2.3H17z"/></> : <><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></>}
                                 </svg>
                               </button>
-                              <button onClick={() => handleDelete(user._id)} className="p-2 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-500/20 transition-all duration-300" title="Delete">
+                              <button onClick={() => setDeleteModal({ isOpen: true, type: 'user', id: user._id, submitting: false })} className="p-2 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-500/20 transition-all duration-300" title="Delete">
                                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
                               </button>
                             </div>
@@ -160,28 +259,178 @@ export default function Admin() {
           </div>
         )}
 
-        {selectedTab === 'settings' && (
+        {selectedTab === 'appeals' && (
           <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-black/20 backdrop-blur-2xl shadow-2xl shadow-black/50 p-8">
-            <div className="absolute -top-[100px] -left-[100px] w-[300px] h-[300px] bg-teal-500/20 rounded-full blur-[100px] pointer-events-none" />
-            <div className="relative max-w-2xl">
-              <h3 className="text-2xl text-white mb-8" style={{ fontFamily: "'Instrument Serif', serif" }}>System Settings</h3>
-              <div className="space-y-6">
-                {[{ label: 'User Registration', description: 'Allow new user signups', enabled: true }, { label: 'Email Notifications', description: 'Send email alerts to users', enabled: true }, { label: 'Maintenance Mode', description: 'Put site in maintenance mode', enabled: false }].map((setting, i) => (
-                  <div key={i} className="flex items-center justify-between p-4 rounded-xl bg-white/5 border border-white/10">
+            <h2 className="text-2xl text-white mb-6" style={{ fontFamily: "'Instrument Serif', serif" }}>Suspension Appeals</h2>
+            <div className="space-y-4">
+              {appealsList.length === 0 ? (
+                <div className="text-center py-12 text-white/40">No pending appeals.</div>
+              ) : appealsList.map(fb => (
+                <div key={fb._id} className="p-6 rounded-2xl bg-white/5 border border-white/10 relative overflow-hidden group">
+                  <div className="absolute top-0 left-0 w-1 h-full bg-red-500/50" />
+                  <div className="flex justify-between items-start mb-4">
                     <div>
-                      <div className="text-white text-sm font-medium">{setting.label}</div>
-                      <div className="text-white/40 text-xs mt-1">{setting.description}</div>
+                      <div className="text-white font-medium flex items-center gap-2">
+                        {fb.name} 
+                        <span className="px-2 py-0.5 rounded text-[10px] uppercase font-bold bg-red-500/20 text-red-400 border border-red-500/30">Appeal</span>
+                      </div>
+                      <div className="text-white/40 text-sm">{fb.email}</div>
                     </div>
-                    <button className={`w-12 h-6 rounded-full transition-all duration-300 relative ${setting.enabled ? 'bg-teal-500/30' : 'bg-white/10'}`}>
-                      <div className={`absolute top-1 w-4 h-4 rounded-full transition-all duration-300 ${setting.enabled ? 'left-7 bg-teal-400' : 'left-1 bg-white/40'}`} />
-                    </button>
+                    <div className="text-right">
+                      <div className="text-white/30 text-xs mb-2">{new Date(fb.createdAt).toLocaleDateString()}</div>
+                      <button onClick={() => handleUnsuspendFromAppeal(fb._id, fb.email)} className="px-4 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20 transition-all duration-300 text-xs font-medium">
+                        Unsuspend User
+                      </button>
+                    </div>
                   </div>
-                ))}
-              </div>
+                  <div className="p-4 rounded-xl bg-black/20 border border-white/5 text-white/70 text-sm">
+                    {fb.message}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {selectedTab === 'feedback' && (
+          <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-black/20 backdrop-blur-2xl shadow-2xl shadow-black/50 p-8">
+            <h2 className="text-2xl text-white mb-6" style={{ fontFamily: "'Instrument Serif', serif" }}>User Feedback</h2>
+            <div className="space-y-4">
+              {regularFeedback.length === 0 ? (
+                <div className="text-center py-12 text-white/40">No feedback submitted yet.</div>
+              ) : regularFeedback.map(fb => (
+                <div key={fb._id} className="p-6 rounded-2xl bg-white/5 border border-white/10">
+                  <div className="flex justify-between items-start mb-4">
+                    <div>
+                      <div className="text-white font-medium">{fb.name}</div>
+                      <div className="text-white/40 text-sm">{fb.email}</div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-white/30 text-xs mb-2">{new Date(fb.createdAt).toLocaleDateString()}</div>
+                      <button onClick={() => setDeleteModal({ isOpen: true, type: 'feedback', id: fb._id, submitting: false })} className="px-3 py-1 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-500/20 transition-all duration-300 text-xs font-medium">
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                  <p className="text-white/70 text-sm">{fb.message}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {selectedTab === 'community' && (
+          <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-black/20 backdrop-blur-2xl shadow-2xl shadow-black/50 p-8">
+            <h2 className="text-2xl text-white mb-6" style={{ fontFamily: "'Instrument Serif', serif" }}>Community Moderation</h2>
+            <div className="space-y-4">
+              {journals.length === 0 ? (
+                <div className="text-center py-12 text-white/40">No community posts yet.</div>
+              ) : journals.map(journal => (
+                <div key={journal._id} className="p-6 rounded-2xl bg-white/5 border border-white/10">
+                  <div className="flex justify-between items-start mb-4">
+                    <div>
+                      <div className="text-white font-medium text-lg">{journal.title}</div>
+                      <div className="text-white/40 text-sm">By {journal.userId?.name || 'Unknown User'} ({journal.userId?.email || 'N/A'})</div>
+                    </div>
+                    <button onClick={() => setDeleteModal({ isOpen: true, type: 'journal', id: journal._id, submitting: false })} className="px-4 py-2 rounded-xl bg-red-500/10 text-red-400 border border-red-500/30 hover:bg-red-500/20 transition-colors text-xs font-medium">Delete Post</button>
+                  </div>
+                  <p className="text-white/70 text-sm mb-4 line-clamp-3">{journal.content}</p>
+                  <div className="flex gap-4 text-xs text-white/30">
+                    <span>{journal.likes?.length || 0} Likes</span>
+                    <span>{journal.comments?.length || 0} Comments</span>
+                    <span>{new Date(journal.createdAt).toLocaleDateString()}</span>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         )}
       </main>
+
+      {/* Suspension Modal */}
+      {suspendModal.isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setSuspendModal({ isOpen: false, userId: null, reason: '', submitting: false })} />
+          <div className="relative w-full max-w-md overflow-hidden rounded-3xl border border-red-500/20 bg-[#0a151c] shadow-2xl shadow-black p-8 animate-fade-rise">
+            <div className="absolute -top-[100px] -left-[100px] w-[200px] h-[200px] bg-red-500/20 rounded-full blur-[80px] pointer-events-none" />
+            <div className="relative">
+              <h3 className="text-2xl text-white mb-2" style={{ fontFamily: "'Instrument Serif', serif" }}>Suspend User</h3>
+              <p className="text-white/50 text-sm mb-6">This will immediately revoke their access to the platform.</p>
+              
+              <form onSubmit={confirmSuspend} className="flex flex-col gap-4">
+                <div className="space-y-1">
+                  <label className="text-xs text-white/40 uppercase tracking-wider">Reason (Optional)</label>
+                  <input 
+                    type="text"
+                    value={suspendModal.reason}
+                    onChange={(e) => setSuspendModal(prev => ({ ...prev, reason: e.target.value }))}
+                    placeholder="e.g. Violation of community guidelines"
+                    className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white placeholder:text-white/30 focus:outline-none focus:border-red-500/50 focus:bg-white/10 transition-all duration-300"
+                    autoFocus
+                  />
+                </div>
+                
+                <div className="flex gap-3 mt-4">
+                  <button 
+                    type="button" 
+                    onClick={() => setSuspendModal({ isOpen: false, userId: null, reason: '', submitting: false })}
+                    className="flex-1 py-3 rounded-xl bg-white/5 hover:bg-white/10 text-white/70 hover:text-white text-sm font-medium transition-all"
+                  >
+                    Cancel
+                  </button>
+                  <button 
+                    type="submit" 
+                    disabled={suspendModal.submitting}
+                    className="flex-1 py-3 rounded-xl bg-red-500/20 hover:bg-red-500/30 text-red-400 border border-red-500/30 text-sm font-medium transition-all disabled:opacity-50"
+                  >
+                    {suspendModal.submitting ? 'Suspending...' : 'Suspend'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {deleteModal.isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setDeleteModal({ isOpen: false, type: null, id: null, submitting: false })} />
+          <div className="relative w-full max-w-md overflow-hidden rounded-3xl border border-red-500/20 bg-[#0a151c] shadow-2xl shadow-black p-8 animate-fade-rise text-center">
+            <div className="absolute -top-[100px] -left-[100px] w-[200px] h-[200px] bg-red-500/20 rounded-full blur-[80px] pointer-events-none" />
+            <div className="relative">
+              <div className="mx-auto w-16 h-16 rounded-full bg-red-500/10 border border-red-500/20 flex items-center justify-center mb-6">
+                <svg className="text-red-400" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+              </div>
+              <h3 className="text-2xl text-white mb-2" style={{ fontFamily: "'Instrument Serif', serif" }}>
+                Delete {deleteModal.type === 'user' ? 'User' : deleteModal.type === 'journal' ? 'Post' : 'Feedback'}?
+              </h3>
+              <p className="text-white/50 text-sm mb-8">
+                {deleteModal.type === 'user' 
+                  ? "Are you sure you want to delete this user and all their data? This action cannot be undone."
+                  : "Are you sure you want to permanently delete this? This action cannot be undone."}
+              </p>
+              
+              <form onSubmit={confirmDelete} className="flex gap-3">
+                <button 
+                  type="button" 
+                  onClick={() => setDeleteModal({ isOpen: false, type: null, id: null, submitting: false })}
+                  className="flex-1 py-3 rounded-xl bg-white/5 hover:bg-white/10 text-white/70 hover:text-white text-sm font-medium transition-all"
+                >
+                  Cancel
+                </button>
+                <button 
+                  type="submit" 
+                  disabled={deleteModal.submitting}
+                  className="flex-1 py-3 rounded-xl bg-red-500/20 hover:bg-red-500/30 text-red-400 border border-red-500/30 text-sm font-medium transition-all disabled:opacity-50"
+                >
+                  {deleteModal.submitting ? 'Deleting...' : 'Delete Permanently'}
+                </button>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
