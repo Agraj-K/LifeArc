@@ -10,7 +10,19 @@ export default function Events() {
   const [editingId, setEditingId] = useState(null)
   const [formData, setFormData] = useState({ title: '', category: 'Career', description: '', startDate: '', targetDate: '', progress: 0, location: '' })
   const [searchQuery, setSearchQuery] = useState('')
+  const [suggestedCategory, setSuggestedCategory] = useState(null)
   const categories = ['Career', 'Health', 'Learning', 'Relationships', 'Finance', 'Travel', 'Other']
+
+  const suggestCategory = (title) => {
+    const t = title.toLowerCase()
+    if (/run|gym|workout|yoga|jog|swim|diet|health|exercise|walk|cycle|meditat|sleep|nutrition/.test(t)) return 'Health'
+    if (/read|course|learn|study|book|tutorial|react|python|javascript|code|class|lecture|exam|university|college|degree|skill/.test(t)) return 'Learning'
+    if (/job|work|project|client|meeting|interview|promotion|career|salary|office|deadline|task|deliver|launch|product/.test(t)) return 'Career'
+    if (/family|friend|date|wedding|party|visit|relationship|social|dinner|birthday|anniversary|connect/.test(t)) return 'Relationships'
+    if (/invest|save|budget|salary|pay|expense|finance|money|bank|loan|tax|stock|crypto/.test(t)) return 'Finance'
+    if (/trip|travel|vacation|flight|hotel|explore|journey|tour|visit|abroad|country|city/.test(t)) return 'Travel'
+    return null
+  }
 
   useEffect(() => { fetchEvents() }, [])
 
@@ -36,12 +48,14 @@ export default function Events() {
         toast.success('Event created')
       }
       setFormData({ title: '', category: 'Career', description: '', startDate: '', targetDate: '', progress: 0, location: '' })
+      setSuggestedCategory(null)
       setIsCreating(false)
     } catch { toast.error('Failed to save event') }
   }
 
   const handleEdit = (event) => {
     setFormData({ title: event.title, category: event.category, description: event.description, startDate: event.startDate?.split('T')[0] || '', targetDate: event.targetDate?.split('T')[0] || '', progress: event.progress, location: event.location })
+    setSuggestedCategory(null)
     setEditingId(event._id); setIsCreating(true)
   }
 
@@ -103,7 +117,32 @@ export default function Events() {
                 <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
                     <label className="text-white/40 text-sm mb-2 block">Title</label>
-                    <input type="text" value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white placeholder:text-white/30 focus:outline-none focus:border-teal-500/50 focus:bg-white/10 transition-all duration-300" placeholder="Event title..." required />
+                    <input
+                      type="text"
+                      value={formData.title}
+                      onChange={e => {
+                        const val = e.target.value
+                        setFormData({...formData, title: val})
+                        const suggestion = suggestCategory(val)
+                        setSuggestedCategory(suggestion && suggestion !== formData.category ? suggestion : null)
+                      }}
+                      className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white placeholder:text-white/30 focus:outline-none focus:border-teal-500/50 focus:bg-white/10 transition-all duration-300"
+                      placeholder="Event title..."
+                      required
+                    />
+                    {suggestedCategory && (
+                      <div className="mt-2 flex items-center gap-2">
+                        <span className="text-white/30 text-xs">✨ AI Suggests:</span>
+                        <button
+                          type="button"
+                          onClick={() => { setFormData(f => ({...f, category: suggestedCategory})); setSuggestedCategory(null) }}
+                          className="px-3 py-1 rounded-full text-xs border border-teal-500/40 bg-teal-500/10 text-teal-300 hover:bg-teal-500/20 hover:border-teal-400/60 transition-all duration-300 animate-fade-rise"
+                        >
+                          {suggestedCategory}
+                        </button>
+                        <span className="text-white/20 text-xs">click to apply</span>
+                      </div>
+                    )}
                   </div>
                   <div>
                     <label className="text-white/40 text-sm mb-2 block">Category</label>

@@ -11,6 +11,8 @@ export default function Journal() {
   const [title, setTitle] = useState('')
   const [content, setContent] = useState('')
   const [selectedEntry, setSelectedEntry] = useState(null)
+  const [showSummary, setShowSummary] = useState(false)
+  const [weeklySummary, setWeeklySummary] = useState('')
 
   useEffect(() => { fetchEntries() }, [])
 
@@ -56,6 +58,52 @@ export default function Journal() {
   const handleNew = () => { setTitle(''); setContent(''); setEditingId(null); setIsWriting(true); setSelectedEntry(null) }
   const handleClose = () => { setTitle(''); setContent(''); setEditingId(null); setIsWriting(false) }
 
+  const generateWeeklySummary = () => {
+    const oneWeekAgo = new Date()
+    oneWeekAgo.setDate(oneWeekAgo.getDate() - 7)
+    const weekEntries = entries.filter(e => new Date(e.createdAt) >= oneWeekAgo)
+
+    if (weekEntries.length === 0) {
+      setWeeklySummary('You have no journal entries from the past 7 days. Start writing to see your weekly summary!')
+      setShowSummary(true)
+      return
+    }
+
+    // Mood keyword scoring
+    const positiveWords = ['happy', 'excited', 'great', 'amazing', 'proud', 'motivated', 'joy', 'achieved', 'awesome', 'wonderful', 'love', 'grateful', 'progress', 'success']
+    const negativeWords = ['stressed', 'tired', 'anxious', 'overwhelmed', 'deadline', 'failed', 'behind', 'worried', 'difficult', 'hard', 'bad', 'sad', 'exhausted', 'frustrated']
+    let positiveScore = 0, negativeScore = 0
+    const allText = weekEntries.map(e => `${e.title} ${e.content}`).join(' ').toLowerCase()
+    positiveWords.forEach(w => { if (allText.includes(w)) positiveScore++ })
+    negativeWords.forEach(w => { if (allText.includes(w)) negativeScore++ })
+
+    const mood = positiveScore > negativeScore + 1 ? 'positive' : negativeScore > positiveScore + 1 ? 'stressed' : 'mixed'
+    const titles = weekEntries.map(e => e.title).filter(Boolean)
+
+    // Extract themes from titles
+    const themes = []
+    if (/project|work|task|deadline|deliver/i.test(allText)) themes.push('project work')
+    if (/study|exam|class|learn|course/i.test(allText)) themes.push('academics')
+    if (/gym|run|workout|health|exercise/i.test(allText)) themes.push('health & fitness')
+    if (/family|friend|social|meet/i.test(allText)) themes.push('relationships')
+    if (/reflect|think|feel|thought/i.test(allText)) themes.push('personal reflection')
+    const themeStr = themes.length > 0 ? themes.slice(0, 3).join(', ') : 'various topics'
+
+    const moodSentences = {
+      positive: `Your mood this week was largely positive — you showed motivation and made meaningful progress.`,
+      stressed: `Your mood seemed mixed this week, with some stress and pressure appearing in your entries. Remember that every challenge is part of growth.`,
+      mixed: `Your mood was balanced this week — some highs, some challenges, but you kept going.`
+    }
+
+    const summary = `This week, you wrote ${weekEntries.length} journal ${weekEntries.length === 1 ? 'entry' : 'entries'}. ` +
+      `Your writing touched on ${themeStr}. ` +
+      moodSentences[mood] +
+      ` ${weekEntries.length >= 4 ? 'Your consistency this week is commendable — keep the habit going!' : 'Even a few entries go a long way in building self-awareness.'}`
+
+    setWeeklySummary(summary)
+    setShowSummary(true)
+  }
+
   const fmt = (d) => new Date(d).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
   const fmtTime = (d) => new Date(d).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
 
@@ -75,13 +123,60 @@ export default function Journal() {
             </h1>
             <p className="text-white/50 text-base mt-4 max-w-xl leading-relaxed">A quiet space for your thoughts, reflections, and daily musings.</p>
           </div>
-          <button onClick={isWriting ? handleClose : handleNew} className="liquid-glass rounded-full px-6 py-3 text-sm text-white cursor-pointer hover:scale-105 transition-transform flex items-center gap-2">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              {isWriting ? <path d="M18 6 6 18M6 6l12 12"/> : <path d="M12 5v14M5 12h14"/>}
-            </svg>
-            {isWriting ? 'Close' : 'New Entry'}
-          </button>
+          <div className="flex items-center gap-3">
+            {entries.length > 0 && (
+              <button
+                onClick={generateWeeklySummary}
+                className="flex items-center gap-2 px-5 py-3 rounded-full border border-purple-500/30 bg-purple-500/10 text-purple-300 text-sm hover:bg-purple-500/20 hover:border-purple-400/50 transition-all duration-300"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/>
+                </svg>
+                Weekly Summary
+              </button>
+            )}
+            <button onClick={isWriting ? handleClose : handleNew} className="liquid-glass rounded-full px-6 py-3 text-sm text-white cursor-pointer hover:scale-105 transition-transform flex items-center gap-2">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                {isWriting ? <path d="M18 6 6 18M6 6l12 12"/> : <path d="M12 5v14M5 12h14"/>}
+              </svg>
+              {isWriting ? 'Close' : 'New Entry'}
+            </button>
+          </div>
         </div>
+
+        {/* Weekly Summary Modal */}
+        {showSummary && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-6" style={{ backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(12px)' }}>
+            <div className="relative max-w-lg w-full rounded-3xl border border-white/10 bg-[hsl(201,100%,8%)] shadow-2xl shadow-black/70 p-8 animate-fade-rise">
+              <div className="absolute -top-[80px] left-1/2 -translate-x-1/2 w-[200px] h-[200px] bg-purple-500/20 rounded-full blur-[80px] pointer-events-none" />
+              <div className="relative">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="w-10 h-10 rounded-xl bg-purple-500/20 border border-purple-500/30 flex items-center justify-center">
+                    <svg className="text-purple-400" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/>
+                    </svg>
+                  </div>
+                  <div>
+                    <h2 className="text-xl text-white" style={{ fontFamily: "'Instrument Serif', serif" }}>Weekly Journal Summary</h2>
+                    <p className="text-white/30 text-xs">AI-generated · last 7 days</p>
+                  </div>
+                  <button onClick={() => setShowSummary(false)} className="ml-auto text-white/40 hover:text-white transition-colors">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+                  </button>
+                </div>
+                <div className="rounded-2xl border border-purple-500/20 bg-purple-500/5 p-6">
+                  <p className="text-white/80 leading-relaxed text-sm">{weeklySummary}</p>
+                </div>
+                <button
+                  onClick={() => setShowSummary(false)}
+                  className="mt-6 w-full py-3 rounded-xl border border-white/10 text-white/60 hover:bg-white/5 hover:text-white transition-all duration-300 text-sm"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {isWriting && (
           <div className="animate-fade-rise mb-16">
